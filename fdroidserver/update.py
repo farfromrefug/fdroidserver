@@ -1433,7 +1433,7 @@ def process_apk(apkcache, apkfilename, repodir, knownapks, use_date_from_apk=Fal
             logging.warning('{0} is set to android:debuggable="true"'.format(apkfile))
 
         if options.rename_apks:
-            n = apk['packageName'] + '_' + str(apk['versionCode']) + '.apk'
+            n = apk['packageName'] + '_' + "_".join(str(x) for x in apk['nativecode'])+ '_' + str(apk['versionCode']) + '.apk'
             std_short_name = os.path.join(repodir, n)
             if apkfile != std_short_name:
                 if os.path.exists(std_short_name):
