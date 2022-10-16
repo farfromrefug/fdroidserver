@@ -1610,7 +1610,9 @@ def manifest_paths(app_dir, flavours):
          os.path.join(app_dir, 'src', 'AndroidManifest.xml'),
          os.path.join(app_dir, 'build.gradle'),
          os.path.join(app_dir, 'build-extras.gradle'),
-         os.path.join(app_dir, 'build.gradle.kts')]
+         os.path.join(app_dir, 'build.gradle.kts'),
+         os.path.join(app_dir, 'app.gradle'),
+         os.path.join(app_dir, 'app.gradle.kts')]
 
     for flavour in flavours:
         if flavour == 'yes':
