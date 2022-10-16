@@ -48,6 +48,8 @@ try:
 except ImportError:
     pass
 
+buildserverid = None
+
 
 # Note that 'force' here also implies test mode.
 def build_server(app, build, vcs, build_dir, output_dir, log_dir, force):
@@ -129,7 +131,7 @@ def build_server(app, build, vcs, build_dir, output_dir, log_dir, force):
                                          sshinfo['user'] + "@" + sshinfo['hostname'] + ":" + ftp.getcwd()],
                                         stderr=subprocess.STDOUT)
             except subprocess.CalledProcessError as e:
-                raise FDroidException(str(e), e.output.decode())
+                raise FDroidException(str(e), e.output.decode()) from e
 
         logging.info("Preparing server for build...")
         serverpath = os.path.abspath(os.path.dirname(__file__))
@@ -233,6 +235,8 @@ def build_server(app, build, vcs, build_dir, output_dir, log_dir, force):
             cmdline += ' --skip-scan'
         if options.notarball:
             cmdline += ' --no-tarball'
+        if (options.scan_binary or config.get('scan_binary')) and not options.skipscan:
+            cmdline += ' --scan-binary'
         cmdline += " %s:%s" % (app.id, build.versionCode)
         chan.exec_command('bash --login -c "' + cmdline + '"')  # nosec B601 inputs are sanitized
 
@@ -288,10 +292,10 @@ def build_server(app, build, vcs, build_dir, output_dir, log_dir, force):
             ftp.get(apkfile, os.path.join(output_dir, apkfile))
             if not options.notarball:
                 ftp.get(tarball, os.path.join(output_dir, tarball))
-        except Exception:
+        except Exception as exc:
             raise BuildException(
                 "Build failed for {0}:{1} - missing output files".format(
-                    app.id, build.versionName), str(output, 'utf-8'))
+                    app.id, build.versionName), str(output, 'utf-8')) from exc
         ftp.close()
 
     finally:
@@ -332,7 +336,7 @@ def transform_first_char(string, method):
 
 
 def add_failed_builds_entry(failed_builds, appid, build, entry):
-    failed_builds.append([appid, int(build.versionCode), str(entry)])
+    failed_builds.append([appid, build.versionCode, str(entry)])
 
 
 def get_metadata_from_apk(app, build, apkfile):
@@ -803,10 +807,10 @@ def build_local(app, build, vcs, build_dir, output_dir, log_dir, srclib_dir, ext
         vercode, version = get_metadata_from_apk(app, build, src)
         if version != build.versionName or vercode != build.versionCode:
             raise BuildException(("Unexpected version/version code in output;"
-                                  " APK: '%s' / '%s', "
-                                  " Expected: '%s' / '%s'")
-                                 % (version, str(vercode), build.versionName,
-                                    str(build.versionCode)))
+                                  " APK: '%s' / '%d', "
+                                  " Expected: '%s' / '%d'")
+                                 % (version, vercode, build.versionName,
+                                    build.versionCode))
         if (options.scan_binary or config.get('scan_binary')) and not options.skipscan:
             if scanner.scan_binary(src):
                 raise BuildException("Found blocklisted packages in final apk!")
@@ -951,7 +955,6 @@ def parse_commandline():
 
 options = None
 config = None
-buildserverid = None
 fdroidserverid = None
 start_timestamp = time.gmtime()
 status_output = None
@@ -984,18 +987,12 @@ def main():
         if not options.appid and not options.all:
             parser.error("option %s: If you really want to build all the apps, use --all" % "all")
 
-    config = common.read_config(options)
+    config = common.read_config(opts=options)
 
     if config['build_server_always']:
         options.server = True
     if options.reset_server and not options.server:
         parser.error("option %s: Using --reset-server without --server makes no sense" % "reset-server")
-
-    if options.onserver or not options.server:
-        for d in ['build-tools', 'platform-tools', 'tools']:
-            if not os.path.isdir(os.path.join(config['sdk_path'], d)):
-                raise FDroidException(_("Android SDK '{path}' does not have '{dirname}' installed!")
-                                      .format(path=config['sdk_path'], dirname=d))
 
     log_dir = 'logs'
     if not os.path.isdir(log_dir):
@@ -1073,6 +1070,9 @@ def main():
                 app['Builds'] = [build]
                 break
 
+    if not options.onserver:
+        common.write_running_status_json(status_output)
+
     # Build applications...
     failed_builds = []
     build_succeeded = []
@@ -1096,7 +1096,7 @@ def main():
             if build.timeout is None:
                 timeout = 7200
             else:
-                timeout = int(build.timeout)
+                timeout = build.timeout
             if options.server and timeout > 0:
                 logging.debug(_('Setting {0} sec timeout for this build').format(timeout))
                 timer = threading.Timer(timeout, force_halt_build, [timeout])
@@ -1108,7 +1108,6 @@ def main():
             tools_version_log = ''
             if not options.onserver:
                 tools_version_log = common.get_android_tools_version_log()
-                common.write_running_status_json(status_output)
             try:
 
                 # For the first build of a particular app, we need to set up
@@ -1197,6 +1196,9 @@ def main():
                     build_succeeded.append(app)
                     build_succeeded_ids.append([app['id'], build.versionCode])
 
+                    if not options.onserver:
+                        common.write_running_status_json(status_output)
+
             except VCSException as vcse:
                 reason = str(vcse).split('\n', 1)[0] if options.verbose else str(vcse)
                 logging.error("VCS error while building app %s: %s" % (
@@ -1208,6 +1210,9 @@ def main():
                 common.deploy_build_log_with_rsync(
                     appid, build.versionCode, "".join(traceback.format_exc())
                 )
+                if not options.onserver:
+                    common.write_running_status_json(status_output)
+
             except FDroidException as e:
                 tstamp = time.strftime("%Y-%m-%d %H:%M:%SZ", time.gmtime())
                 with open(os.path.join(log_dir, appid + '.log'), 'a+') as f:
@@ -1226,6 +1231,9 @@ def main():
                 common.deploy_build_log_with_rsync(
                     appid, build.versionCode, "".join(traceback.format_exc())
                 )
+                if not options.onserver:
+                    common.write_running_status_json(status_output)
+
             except Exception as e:
                 logging.error("Could not build app %s due to unknown error: %s" % (
                     appid, traceback.format_exc()))
@@ -1236,6 +1244,8 @@ def main():
                 common.deploy_build_log_with_rsync(
                     appid, build.versionCode, "".join(traceback.format_exc())
                 )
+                if not options.onserver:
+                    common.write_running_status_json(status_output)
 
             if timer:
                 timer.cancel()  # kill the watchdog timer

@@ -55,7 +55,7 @@ def check_http(app):
     if urlver != '.':
         parsed = urllib.parse.urlparse(urlver)
         if not parsed.netloc or not parsed.scheme or parsed.scheme != 'https':
-            raise FDroidException(_('UpdateCheckData has invalid URL: {url}').format(url=urlcode))
+            raise FDroidException(_('UpdateCheckData has invalid URL: {url}').format(url=urlver))
 
     logging.debug("...requesting {0}".format(urlcode))
     req = urllib.request.Request(urlcode, None, headers=net.HEADERS)
@@ -65,7 +65,7 @@ def check_http(app):
     m = re.search(codeex, page)
     if not m:
         raise FDroidException("No RE match for version code")
-    vercode = m.group(1).strip()
+    vercode = common.version_code_string_to_int(m.group(1).strip())
 
     if urlver != '.':
         logging.debug("...requesting {0}".format(urlver))
@@ -116,7 +116,7 @@ def check_tags(app, pattern):
 
     htag = None
     hver = None
-    hcode = "0"
+    hcode = 0
 
     tags = []
     if repotype == 'git':
@@ -181,25 +181,24 @@ def check_tags(app, pattern):
 
             logging.debug("UpdateCheckData found version {0} ({1})"
                           .format(version, vercode))
-            i_vercode = common.version_code_string_to_int(vercode)
-            if i_vercode > common.version_code_string_to_int(hcode):
+            vercode = common.version_code_string_to_int(vercode)
+            if vercode > hcode:
                 htag = tag
-                hcode = str(i_vercode)
+                hcode = vercode
                 hver = version
         else:
             for subdir in possible_subdirs(app):
                 root_dir = build_dir / subdir
                 paths = common.manifest_paths(root_dir, last_build.gradle)
                 version, vercode, _package = common.parse_androidmanifests(paths, app)
-                if version == 'Unknown' or version == 'Ignore':
+                if version in ('Unknown', 'Ignore'):
                     version = tag
                 if vercode:
                     logging.debug("Manifest exists in subdir '{0}'. Found version {1} ({2})"
                                   .format(subdir, version, vercode))
-                    i_vercode = common.version_code_string_to_int(vercode)
-                    if i_vercode > common.version_code_string_to_int(hcode):
+                    if vercode > hcode:
                         htag = tag
-                        hcode = str(i_vercode)
+                        hcode = vercode
                         hver = version
 
     if hver:
@@ -255,7 +254,7 @@ def check_repomanifest(app, branch=None):
 
     hpak = None
     hver = None
-    hcode = "0"
+    hcode = 0
     for subdir in possible_subdirs(app):
         root_dir = build_dir / subdir
         paths = common.manifest_paths(root_dir, last_build.gradle)
@@ -263,10 +262,9 @@ def check_repomanifest(app, branch=None):
         if vercode:
             logging.debug("Manifest exists in subdir '{0}'. Found version {1} ({2})"
                           .format(subdir, version, vercode))
-            i_vercode = common.version_code_string_to_int(vercode)
-            if i_vercode > common.version_code_string_to_int(hcode):
+            if vercode > hcode:
                 hpak = package
-                hcode = str(i_vercode)
+                hcode = vercode
                 hver = version
 
     if not hpak:
@@ -381,7 +379,6 @@ def _getcvname(app):
 
 
 def fetch_autoname(app, tag):
-
     if not app.RepoType or app.UpdateCheckMode in ('None', 'Static') \
        or app.UpdateCheckName == "Ignore":
         return None
@@ -419,14 +416,23 @@ def fetch_autoname(app, tag):
     return commitmsg
 
 
-def checkupdates_app(app):
+def operate_vercode(operation, vercode):
+    if not common.VERCODE_OPERATION_RE.match(operation):
+        raise MetaDataException(_('Invalid VercodeOperation: {field}')
+                                .format(field=operation))
+    oldvercode = vercode
+    op = operation.replace("%c", str(oldvercode))
+    vercode = common.calculate_math_string(op)
+    logging.debug("Applied vercode operation: %d -> %d" % (oldvercode, vercode))
+    return vercode
 
+
+def checkupdates_app(app):
     # If a change is made, commitmsg should be set to a description of it.
     # Only if this is set will changes be written back to the metadata.
     commitmsg = None
 
     tag = None
-    vercode = None
     mode = app.UpdateCheckMode
     if mode.startswith('Tags'):
         pattern = mode[5:] if len(mode) > 4 else None
@@ -446,36 +452,33 @@ def checkupdates_app(app):
     else:
         raise MetaDataException(_('Invalid UpdateCheckMode: {mode}').format(mode=mode))
 
-    if version and vercode and app.VercodeOperation:
-        if not common.VERCODE_OPERATION_RE.match(app.VercodeOperation):
-            raise MetaDataException(_('Invalid VercodeOperation: {field}')
-                                    .format(field=app.VercodeOperation))
-        oldvercode = str(int(vercode))
-        op = app.VercodeOperation.replace("%c", oldvercode)
-        vercode = str(common.calculate_math_string(op))
-        logging.debug("Applied vercode operation: %s -> %s" % (oldvercode, vercode))
+    if not version or not vercode:
+        raise FDroidException(_('no version information found'))
 
-    if version and any(version.startswith(s) for s in [
-            '${',  # Gradle variable names
-            '@string/',  # Strings we could not resolve
-            ]):
-        version = "Unknown"
+    if app.VercodeOperation:
+        if isinstance(app.VercodeOperation, str):
+            vercodes = [operate_vercode(app.VercodeOperation, vercode)]
+        else:
+            vercodes = sorted([
+                operate_vercode(operation, vercode)
+                for operation in app.VercodeOperation
+            ])
+    else:
+        vercodes = [vercode]
 
     updating = False
-    if version is None:
-        raise FDroidException(_('no version information found'))
-    elif vercode == app.CurrentVersionCode:
+    if vercodes[-1] == app.CurrentVersionCode:
         logging.debug("...up to date")
-    elif int(vercode) > int(app.CurrentVersionCode):
+    elif vercodes[-1] > app.CurrentVersionCode:
         logging.debug("...updating - old vercode={0}, new vercode={1}".format(
-            app.CurrentVersionCode, vercode))
+            app.CurrentVersionCode, vercodes[-1]))
         app.CurrentVersion = version
-        app.CurrentVersionCode = str(int(vercode))
+        app.CurrentVersionCode = vercodes[-1]
         updating = True
     else:
         raise FDroidException(
             _('current version is newer: old vercode={old}, new vercode={new}').format(
-                old=app.CurrentVersionCode, new=vercode
+                old=app.CurrentVersionCode, new=vercodes[-1]
             )
         )
 
@@ -501,38 +504,43 @@ def checkupdates_app(app):
             if pattern.startswith('+'):
                 try:
                     suffix, pattern = pattern[1:].split(' ', 1)
-                except ValueError:
-                    raise MetaDataException("Invalid AutoUpdateMode: " + mode)
+                except ValueError as exc:
+                    raise MetaDataException("Invalid AutoUpdateMode: " + mode) from exc
 
             gotcur = False
             latest = None
-            for build in app.get('Builds', []):
-                if int(build.versionCode) >= int(app.CurrentVersionCode):
-                    gotcur = True
-                if not latest or int(build.versionCode) > int(latest.versionCode):
-                    latest = build
+            builds = app.get('Builds', [])
 
-            if int(latest.versionCode) > int(app.CurrentVersionCode):
-                raise FDroidException(
-                    _(
-                        'latest build recipe is newer: old vercode={old}, new vercode={new}'
-                    ).format(old=latest.versionCode, new=app.CurrentVersionCode)
-                )
+            if builds:
+                latest = builds[-1]
+                if latest.versionCode == app.CurrentVersionCode:
+                    gotcur = True
+                elif latest.versionCode > app.CurrentVersionCode:
+                    raise FDroidException(
+                        _(
+                            'latest build recipe is newer: '
+                            'old vercode={old}, new vercode={new}'
+                        ).format(old=latest.versionCode, new=app.CurrentVersionCode)
+                    )
 
             if not gotcur:
-                newbuild = copy.deepcopy(latest)
-                newbuild.disable = False
-                newbuild.versionCode = app.CurrentVersionCode
-                newbuild.versionName = app.CurrentVersion + suffix.replace('%c', newbuild.versionCode)
-                logging.info("...auto-generating build for " + newbuild.versionName)
-                if tag:
-                    newbuild.commit = tag
-                else:
-                    commit = pattern.replace('%v', app.CurrentVersion)
-                    commit = commit.replace('%c', newbuild.versionCode)
-                    newbuild.commit = commit
+                newbuilds = copy.deepcopy(builds[-len(vercodes):])
+                for b, v in zip(newbuilds, vercodes):
+                    b.disable = False
+                    b.versionCode = v
+                    b.versionName = app.CurrentVersion + suffix.replace(
+                        '%c', str(v)
+                    )
+                    logging.info("...auto-generating build for " + b.versionName)
+                    if tag:
+                        b.commit = tag
+                    else:
+                        commit = pattern.replace('%v', app.CurrentVersion)
+                        commit = commit.replace('%c', str(v))
+                        b.commit = commit
 
-                app['Builds'].append(newbuild)
+                app['Builds'].extend(newbuilds)
+
                 name = _getappname(app)
                 ver = _getcvname(app)
                 commitmsg = "Update %s to %s" % (name, ver)

@@ -16,76 +16,38 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-import imghdr
-import json
 import os
 import re
 import sys
-import traceback
-from argparse import ArgumentParser
+import json
+import imghdr
 import logging
+import zipfile
 import itertools
+import traceback
+import urllib.request
+from argparse import ArgumentParser
+from copy import deepcopy
+from tempfile import TemporaryDirectory
+from pathlib import Path
+from datetime import datetime, timedelta
 
 from . import _
 from . import common
 from . import metadata
-from .exception import BuildException, VCSException
+from .exception import BuildException, VCSException, ConfigurationException
+from . import scanner
 
-config = None
 options = None
 
 DEFAULT_JSON_PER_BUILD = {'errors': [], 'warnings': [], 'infos': []}  # type: ignore
-json_per_build = DEFAULT_JSON_PER_BUILD
+json_per_build = deepcopy(DEFAULT_JSON_PER_BUILD)
 
-MAVEN_URL_REGEX = re.compile(r"""\smaven\s*{.*?(?:setUrl|url)\s*=?\s*(?:uri)?\(?\s*["']?([^\s"']+)["']?[^}]*}""",
+MAVEN_URL_REGEX = re.compile(r"""\smaven\s*(?:{.*?(?:setUrl|url)|\((?:url)?)\s*=?\s*(?:uri)?\(?\s*["']?([^\s"']+)["']?[^})]*[)}]""",
                              re.DOTALL)
 
-CODE_SIGNATURES = {
-    # The `apkanalyzer dex packages` output looks like this:
-    # M d 1   1       93      <packagename> <other stuff>
-    # The first column has P/C/M/F for package, class, method or field
-    # The second column has x/k/r/d for removed, kept, referenced and defined.
-    # We already filter for defined only in the apkanalyzer call. 'r' will be
-    # for things referenced but not distributed in the apk.
-    exp: re.compile(r'.[\s]*d[\s]*[0-9]*[\s]*[0-9*][\s]*[0-9]*[\s]*' + exp, re.IGNORECASE) for exp in [
-        r'(com\.google\.firebase[^\s]*)',
-        r'(com\.google\.android\.gms[^\s]*)',
-        r'(com\.google\.android\.play\.core[^\s]*)',
-        r'(com\.google\.tagmanager[^\s]*)',
-        r'(com\.google\.analytics[^\s]*)',
-        r'(com\.android\.billing[^\s]*)',
-    ]
-}
 
-# Common known non-free blobs (always lower case):
-NON_FREE_GRADLE_LINES = {
-    exp: re.compile(r'.*' + exp, re.IGNORECASE) for exp in [
-        r'flurryagent',
-        r'paypal.*mpl',
-        r'admob.*sdk.*android',
-        r'google.*ad.*view',
-        r'google.*admob',
-        r'google.*play.*services',
-        r'com.google.android.play:core.*',
-        r'com.google.mlkit',
-        r'com.android.billingclient',
-        r'androidx.work:work-gcm',
-        r'crittercism',
-        r'heyzap',
-        r'jpct.*ae',
-        r'youtube.*android.*player.*api',
-        r'bugsense',
-        r'crashlytics',
-        r'ouya.*sdk',
-        r'libspen23',
-        r'firebase',
-        r'''["']com.facebook.android['":]''',
-        r'cloudrail',
-        r'com.tencent.bugly',
-        r'appcenter-push',
-        r'com.github.junrar:junrar',
-    ]
-}
+SCANNER_CACHE_VERSION = 1
 
 
 def get_gradle_compile_commands(build):
@@ -93,6 +55,7 @@ def get_gradle_compile_commands(build):
                        'provided',
                        'apk',
                        'implementation',
+                       'classpath',
                        'api',
                        'compileOnly',
                        'runtimeOnly']
@@ -105,28 +68,316 @@ def get_gradle_compile_commands(build):
     return [re.compile(r'\s*' + c, re.IGNORECASE) for c in commands]
 
 
-def scan_binary(apkfile):
-    """Scan output of apkanalyzer for known non-free classes.
-
-    apkanalyzer produces useful output when it can run, but it does
-    not support all recent JDK versions, and also some DEX versions,
-    so this cannot count on it to always produce useful output or even
-    to run without exiting with an error.
-
+def get_embedded_classes(apkfile, depth=0):
     """
-    logging.info(_('Scanning APK with apkanalyzer for known non-free classes.'))
-    result = common.SdkToolsPopen(["apkanalyzer", "dex", "packages", "--defined-only", apkfile], output=False)
-    if result.returncode != 0:
-        logging.warning(_('scanner not cleanly run apkanalyzer: %s') % result.output)
-    problems = 0
-    for suspect, regexp in CODE_SIGNATURES.items():
-        matches = regexp.findall(result.output)
-        if matches:
-            for m in set(matches):
-                logging.debug("Found class '%s'" % m)
-            problems += 1
+    Get the list of Java classes embedded into all DEX files.
+
+    :return: set of Java classes names as string
+    """
+    if depth > 10:  # zipbomb protection
+        return {_('Max recursion depth in ZIP file reached: %s') % apkfile}
+
+    archive_regex = re.compile(r'.*\.(aab|aar|apk|apks|jar|war|xapk|zip)$')
+    class_regex = re.compile(r'classes.*\.dex')
+    classes = set()
+
+    try:
+        with TemporaryDirectory() as tmp_dir, zipfile.ZipFile(apkfile, 'r') as apk_zip:
+            for info in apk_zip.infolist():
+                # apk files can contain apk files, again
+                with apk_zip.open(info) as apk_fp:
+                    if zipfile.is_zipfile(apk_fp):
+                        classes = classes.union(get_embedded_classes(apk_fp, depth + 1))
+                        if not archive_regex.search(info.filename):
+                            classes.add(
+                                'ZIP file without proper file extension: %s'
+                                % info.filename
+                            )
+                        continue
+
+                with apk_zip.open(info.filename) as fp:
+                    file_magic = fp.read(3)
+                if file_magic == b'dex':
+                    if not class_regex.search(info.filename):
+                        classes.add('DEX file with fake name: %s' % info.filename)
+                    apk_zip.extract(info, tmp_dir)
+                    run = common.SdkToolsPopen(
+                        ["dexdump", '{}/{}'.format(tmp_dir, info.filename)],
+                        output=False,
+                    )
+                    classes = classes.union(set(re.findall(r'[A-Z]+((?:\w+\/)+\w+)', run.output)))
+    except zipfile.BadZipFile as ex:
+        return {_('Problem with ZIP file: %s, error %s') % (apkfile, ex)}
+
+    return classes
+
+
+def _datetime_now():
+    """Get datetime.now(), using this funciton allows mocking it for testing."""
+    return datetime.utcnow()
+
+
+def _scanner_cachedir():
+    """Get `Path` to fdroidserver cache dir."""
+    cfg = common.get_config()
+    if not cfg:
+        raise ConfigurationException('config not initialized')
+    if "cachedir_scanner" not in cfg:
+        raise ConfigurationException("could not load 'cachedir_scanner' from config")
+    cachedir = Path(cfg["cachedir_scanner"])
+    cachedir.mkdir(exist_ok=True, parents=True)
+    return cachedir
+
+
+class SignatureDataMalformedException(Exception):
+    pass
+
+
+class SignatureDataOutdatedException(Exception):
+    pass
+
+
+class SignatureDataCacheMissException(Exception):
+    pass
+
+
+class SignatureDataVersionMismatchException(Exception):
+    pass
+
+
+class SignatureDataController:
+    def __init__(self, name, filename, url):
+        self.name = name
+        self.filename = filename
+        self.url = url
+        # by default we assume cache is valid indefinitely
+        self.cache_duration = timedelta(days=999999)
+        self.data = {}
+
+    def check_data_version(self):
+        if self.data.get("version") != SCANNER_CACHE_VERSION:
+            raise SignatureDataVersionMismatchException()
+
+    def check_last_updated(self):
+        """
+        Check if the last_updated value is ok and raise an exception if expired or inaccessible.
+
+        :raises SignatureDataMalformedException: when timestamp value is
+                                                 inaccessible or not parse-able
+        :raises SignatureDataOutdatedException: when timestamp is older then
+                                                `self.cache_duration`
+        """
+        last_updated = self.data.get("last_updated", None)
+        if last_updated:
+            try:
+                last_updated = datetime.fromtimestamp(last_updated)
+            except ValueError as e:
+                raise SignatureDataMalformedException() from e
+            except TypeError as e:
+                raise SignatureDataMalformedException() from e
+            delta = (last_updated + self.cache_duration) - scanner._datetime_now()
+            if delta > timedelta(seconds=0):
+                logging.debug(_('next {name} cache update due in {time}').format(
+                    name=self.filename, time=delta
+                ))
+            else:
+                raise SignatureDataOutdatedException()
+
+    def fetch(self):
+        try:
+            self.fetch_signatures_from_web()
+            self.write_to_cache()
+        except Exception as e:
+            raise Exception(_("downloading scanner signatures from '{}' failed").format(self.url)) from e
+
+    def load(self):
+        try:
+            try:
+                self.load_from_cache()
+                self.verify_data()
+                self.check_last_updated()
+            except SignatureDataCacheMissException:
+                self.load_from_defaults()
+        except SignatureDataOutdatedException:
+            self.fetch_signatures_from_web()
+            self.write_to_cache()
+        except (SignatureDataMalformedException, SignatureDataVersionMismatchException) as e:
+            logging.critical(_("scanner cache is malformed! You can clear it with: '{clear}'").format(
+                clear='rm -r {}'.format(common.get_config()['cachedir_scanner'])
+            ))
+            raise e
+
+    def load_from_defaults(self):
+        sig_file = (Path(__file__).parent / 'data' / 'scanner' / self.filename).resolve()
+        with open(sig_file) as f:
+            self.set_data(json.load(f))
+
+    def load_from_cache(self):
+        sig_file = scanner._scanner_cachedir() / self.filename
+        if not sig_file.exists():
+            raise SignatureDataCacheMissException()
+        with open(sig_file) as f:
+            self.set_data(json.load(f))
+
+    def write_to_cache(self):
+        sig_file = scanner._scanner_cachedir() / self.filename
+        with open(sig_file, "w", encoding="utf-8") as f:
+            json.dump(self.data, f, indent=2)
+        logging.debug("write '{}' to cache".format(self.filename))
+
+    def verify_data(self):
+        """
+        Clean and validate `self.data`.
+
+        Right now this function does just a basic key sanitation.
+        """
+        self.check_data_version()
+        valid_keys = ['timestamp', 'last_updated', 'version', 'signatures', 'cache_duration']
+
+        for k in list(self.data.keys()):
+            if k not in valid_keys:
+                del self.data[k]
+
+    def set_data(self, new_data):
+        self.data = new_data
+        if 'cache_duration' in new_data:
+            self.cache_duration = timedelta(seconds=new_data['cache_duration'])
+
+    def fetch_signatures_from_web(self):
+        if not self.url.startswith("https://"):
+            raise Exception(_("can't open non-https url: '{};".format(self.url)))
+        logging.debug(_("downloading '{}'").format(self.url))
+        with urllib.request.urlopen(self.url) as f:  # nosec B310 scheme filtered above
+            self.set_data(json.load(f))
+        self.data['last_updated'] = scanner._datetime_now().timestamp()
+
+
+class ExodusSignatureDataController(SignatureDataController):
+    def __init__(self):
+        super().__init__('Exodus signatures', 'exodus.yml', 'https://reports.exodus-privacy.eu.org/api/trackers')
+        self.cache_duration = timedelta(days=1)  # refresh exodus cache after one day
+
+    def fetch_signatures_from_web(self):
+        logging.debug(_("downloading '{}'").format(self.url))
+
+        data = {
+            "signatures": {},
+            "timestamp": scanner._datetime_now().timestamp(),
+            "last_updated": scanner._datetime_now().timestamp(),
+            "version": SCANNER_CACHE_VERSION,
+        }
+
+        if not self.url.startswith("https://"):
+            raise Exception(_("can't open non-https url: '{};".format(self.url)))
+        with urllib.request.urlopen(self.url) as f:  # nosec B310 scheme filtered above
+            d = json.load(f)
+            for tracker in d["trackers"].values():
+                if tracker.get('code_signature'):
+                    data["signatures"][tracker["name"]] = {
+                        "name": tracker["name"],
+                        "warn_code_signatures": [tracker["code_signature"]],
+                        # exodus also provides network signatures, unused atm.
+                        # "network_signatures": [tracker["network_signature"]],
+                        "AntiFeatures": ["Tracking"],
+                        "license": "NonFree"  # We assume all trackers in exodus
+                                              # are non-free, although free
+                                              # trackers like piwik, acra,
+                                              # etc. might be listed by exodus
+                                              # too.
+                    }
+        self.set_data(data)
+
+
+class SUSSDataController(SignatureDataController):
+    def __init__(self):
+        super().__init__(
+            'SUSS',
+            'suss.json',
+            'https://fdroid.gitlab.io/fdroid-suss/suss.json'
+        )
+
+    def load_from_defaults(self):
+        self.set_data(json.loads(SUSS_DEFAULT))
+
+
+class ScannerTool():
+    def __init__(self):
+        self.sdcs = [
+            SUSSDataController(),
+        ]
+
+        # we could add support for loading additional signature source
+        # definitions from config.yml here
+
+        self.load()
+        self.compile_regexes()
+
+    def load(self):
+        for sdc in self.sdcs:
+            sdc.load()
+
+    def compile_regexes(self):
+        self.regexs = {
+            'err_code_signatures': {},
+            'err_gradle_signatures': {},
+            'warn_code_signatures': {},
+            'warn_gradle_signatures': {},
+        }
+        for sdc in self.sdcs:
+            for signame, sigdef in sdc.data.get('signatures', {}).items():
+                for sig in sigdef.get('code_signatures', []):
+                    self.regexs['err_code_signatures'][sig] = re.compile('.*' + sig, re.IGNORECASE)
+                for sig in sigdef.get('gradle_signatures', []):
+                    self.regexs['err_gradle_signatures'][sig] = re.compile('.*' + sig, re.IGNORECASE)
+                for sig in sigdef.get('warn_code_signatures', []):
+                    self.regexs['warn_code_signatures'][sig] = re.compile('.*' + sig, re.IGNORECASE)
+                for sig in sigdef.get('warn_gradle_signatures', []):
+                    self.regexs['warn_gradle_signatures'][sig] = re.compile('.*' + sig, re.IGNORECASE)
+
+    def refresh(self):
+        for sdc in self.sdcs:
+            sdc.fetch_signatures_from_web()
+            sdc.write_to_cache()
+
+    def add(self, new_controller: SignatureDataController):
+        self.sdcs.append(new_controller)
+        self.compile_regexes()
+
+
+# TODO: change this from singleton instance to dependency injection
+# use `_get_tool()` instead of accessing this directly
+_SCANNER_TOOL = None
+
+
+def _get_tool():
+    """
+    Lazy loading function for getting a ScannerTool instance.
+
+    ScannerTool initialization need to access `common.config` values. Those are only available after initialization through `common.read_config()`. So this factory assumes config was called at an erlier point in time.
+    """
+    if not scanner._SCANNER_TOOL:
+        scanner._SCANNER_TOOL = ScannerTool()
+    return scanner._SCANNER_TOOL
+
+
+def scan_binary(apkfile):
+    """Scan output of dexdump for known non-free classes."""
+    logging.info(_('Scanning APK with dexdump for known non-free classes.'))
+    result = get_embedded_classes(apkfile)
+    problems, warnings = 0, 0
+    for classname in result:
+        for suspect, regexp in _get_tool().regexs['warn_code_signatures'].items():
+            if regexp.match(classname):
+                logging.debug("Warning: found class '%s'" % classname)
+                warnings += 1
+        for suspect, regexp in _get_tool().regexs['err_code_signatures'].items():
+            if regexp.match(classname):
+                logging.debug("Problem: found class '%s'" % classname)
+                problems += 1
+    if warnings:
+        logging.warning(_("Found {count} warnings in {filename}").format(count=warnings, filename=apkfile))
     if problems:
-        logging.critical("Found problems in %s" % apkfile)
+        logging.critical(_("Found {count} problems in {filename}").format(count=problems, filename=apkfile))
     return problems
 
 
@@ -139,18 +390,9 @@ def scan_source(build_dir, build=metadata.Build()):
     """
     count = 0
 
-    allowlisted = [
-        'firebase-jobdispatcher',  # https://github.com/firebase/firebase-jobdispatcher-android/blob/master/LICENSE
-        'com.firebaseui',          # https://github.com/firebase/FirebaseUI-Android/blob/master/LICENSE
-        'geofire-android'          # https://github.com/firebase/geofire-java/blob/master/LICENSE
-    ]
-
-    def is_allowlisted(s):
-        return any(al in s for al in allowlisted)
-
     def suspects_found(s):
-        for n, r in NON_FREE_GRADLE_LINES.items():
-            if r.match(s) and not is_allowlisted(s):
+        for n, r in _get_tool().regexs['err_gradle_signatures'].items():
+            if r.match(s):
                 yield n
 
     allowed_repos = [re.compile(r'^https://' + re.escape(repo) + r'/*') for repo in [
@@ -164,6 +406,7 @@ def scan_source(build_dir, build=metadata.Build()):
         'oss.sonatype.org/content/repositories/releases',
         'oss.sonatype.org/content/groups/public',
         'clojars.org/repo',  # Clojure free software libs
+        'repo.clojars.org',  # Clojure free software libs
         's3.amazonaws.com/repo.commonsware.com',  # CommonsWare
         'plugins.gradle.org/m2',  # Gradle plugin repo
         'maven.google.com',  # Google Maven Repo, https://developer.android.com/studio/build/dependencies.html#google-maven
@@ -383,7 +626,7 @@ def scan_source(build_dir, build=metadata.Build()):
                             count += handleproblem('DexClassLoader', path_in_build_dir, filepath)
                             break
 
-            elif curfile.endswith('.gradle'):
+            elif curfile.endswith('.gradle') or curfile.endswith('.gradle.kts'):
                 if not os.path.isfile(filepath):
                     continue
                 with open(filepath, 'r', errors='replace') as f:
@@ -421,16 +664,25 @@ def scan_source(build_dir, build=metadata.Build()):
 
 
 def main():
-    global config, options, json_per_build
+    global options, json_per_build
 
     # Parse command line...
-    parser = ArgumentParser(usage="%(prog)s [options] [APPID[:VERCODE] [APPID[:VERCODE] ...]]")
+    parser = ArgumentParser(
+        usage="%(prog)s [options] [(APPID[:VERCODE] | path/to.apk) ...]"
+    )
     common.setup_global_opts(parser)
     parser.add_argument("appid", nargs='*', help=_("application ID with optional versionCode in the form APPID[:VERCODE]"))
+    parser.add_argument(
+        "--exodus",
+        action="store_true",
+        help="Use tracker scanner from Exodus project (requires internet)",
+    )
     parser.add_argument("-f", "--force", action="store_true", default=False,
                         help=_("Force scan of disabled apps and builds."))
     parser.add_argument("--json", action="store_true", default=False,
                         help=_("Output JSON to stdout."))
+    parser.add_argument("--refresh", "-r", action="store_true", default=False,
+                        help=_("fetch the latest version of signatures from the web"))
     metadata.add_metadata_arguments(parser)
     options = parser.parse_args()
     metadata.warnings_action = options.W
@@ -442,13 +694,42 @@ def main():
         else:
             logging.getLogger().setLevel(logging.ERROR)
 
-    config = common.read_config(options)
+    # initialize/load configuration values
+    common.get_config(opts=options)
 
-    # Read all app and srclib metadata
-    allapps = metadata.read_metadata()
-    apps = common.read_app_args(options.appid, allapps, True)
+    if options.refresh:
+        scanner._get_tool().refresh()
+    if options.exodus:
+        c = ExodusSignatureDataController()
+        if options.refresh:
+            c.fetch_signatures_from_web()
+        else:
+            c.fetch()
+        scanner._get_tool().add(c)
 
     probcount = 0
+
+    appids = []
+    for apk in options.appid:
+        if os.path.isfile(apk):
+            count = scanner.scan_binary(apk)
+            if count > 0:
+                logging.warning(
+                    _('Scanner found {count} problems in {apk}').format(
+                        count=count, apk=apk
+                    )
+                )
+                probcount += count
+        else:
+            appids.append(apk)
+
+    if not appids:
+        return
+
+    # Read all app and srclib metadata
+
+    allapps = metadata.read_metadata()
+    apps = common.read_app_args(appids, allapps, True)
 
     build_dir = 'build'
     if not os.path.isdir(build_dir):
@@ -479,7 +760,7 @@ def main():
             else:
                 logging.info(_("{appid}: no builds specified, running on current source state")
                              .format(appid=appid))
-                json_per_build = DEFAULT_JSON_PER_BUILD
+                json_per_build = deepcopy(DEFAULT_JSON_PER_BUILD)
                 json_per_appid['current-source-state'] = json_per_build
                 count = scan_source(build_dir)
                 if count > 0:
@@ -489,7 +770,7 @@ def main():
                 app['Builds'] = []
 
             for build in app.get('Builds', []):
-                json_per_build = DEFAULT_JSON_PER_BUILD
+                json_per_build = deepcopy(DEFAULT_JSON_PER_BUILD)
                 json_per_appid[build.versionCode] = json_per_build
 
                 if build.disable and not options.force:
@@ -535,3 +816,299 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+
+SUSS_DEFAULT = '''{
+  "cache_duration": 86400,
+  "signatures": {
+    "admob": {
+      "gradle_signatures": [
+        "admob.*sdk.*android"
+      ],
+      "license": "NonFree"
+    },
+    "androidx": {
+      "gradle_signatures": [
+        "androidx.navigation:navigation-dynamic-features",
+        "androidx.work:work-gcm"
+      ],
+      "license": "NonFree"
+    },
+    "appcenter-push": {
+      "gradle_signatures": [
+        "appcenter-push"
+      ],
+      "license": "NonFree"
+    },
+    "bugsense": {
+      "gradle_signatures": [
+        "bugsense"
+      ],
+      "license": "NonFree"
+    },
+    "cloudrail": {
+      "gradle_signatures": [
+        "cloudrail"
+      ],
+      "license": "NonFree"
+    },
+    "com.android.billing": {
+      "code_signatures": [
+        "com/android/billing"
+      ],
+      "license": "NonFree"
+    },
+    "com.android.billingclient": {
+      "gradle_signatures": [
+        "com.android.billingclient"
+      ],
+      "license": "NonFree"
+    },
+    "com.anjlab.android.iab.v3": {
+      "gradle_signatures": [
+        "com.anjlab.android.iab.v3:library"
+      ],
+      "license": "NonFree"
+    },
+    "com.cloudinary": {
+      "gradle_signatures": [
+        "com.cloudinary:cloudinary-android"
+      ],
+      "license": "NonFree"
+    },
+    "com.evernote": {
+      "gradle_signatures": [
+        "com.evernote:android-job"
+      ],
+      "license": "NonFree"
+    },
+    "com.facebook": {
+      "gradle_signatures": [
+        "[\\"']com.facebook.android['\\":]"
+      ],
+      "license": "NonFree"
+    },
+    "com.github.junrar": {
+      "gradle_signatures": [
+        "com.github.junrar:junrar"
+      ],
+      "license": "NonFree"
+    },
+    "com.github.penn5": {
+      "gradle_signatures": [
+        "com.github.penn5:donations"
+      ],
+      "license": "NonFree"
+    },
+    "com.google.analytics": {
+      "code_signatures": [
+        "com/google/analytics"
+      ],
+      "license": "NonFree"
+    },
+    "com.google.android.exoplayer": {
+      "gradle_signatures": [
+        "com.google.android.exoplayer:extension-cast",
+        "com.google.android.exoplayer:extension-cronet"
+      ],
+      "license": "NonFree"
+    },
+    "com.google.android.gms": {
+      "code_signatures": [
+        "com/google/android/gms"
+      ],
+      "license": "NonFree"
+    },
+    "com.google.android.libraries.places": {
+      "gradle_signatures": [
+        "com.google.android.libraries.places:places"
+      ],
+      "license": "NonFree"
+    },
+    "com.google.android.play": {
+      "gradle_signatures": [
+        "com.google.android.play:app-update",
+        "com.google.android.play:core.*"
+      ],
+      "license": "NonFree"
+    },
+    "com.google.android.play.core": {
+      "code_signatures": [
+        "com/google/android/play/core"
+      ],
+      "license": "NonFree"
+    },
+    "com.google.firebase": {
+      "code_signatures": [
+        "com/google/firebase"
+      ],
+      "license": "NonFree"
+    },
+    "com.google.mlkit": {
+      "gradle_signatures": [
+        "com.google.mlkit"
+      ],
+      "license": "NonFree"
+    },
+    "com.google.tagmanager": {
+      "code_signatures": [
+        "com/google/tagmanager"
+      ],
+      "license": "NonFree"
+    },
+    "com.hypertrack": {
+      "gradle_signatures": [
+        "com\\\\.hypertrack(?!:hyperlog)"
+      ],
+      "license": "NonFree"
+    },
+    "com.mapbox": {
+      "MaintainerNotes": "com.mapbox.mapboxsdk:mapbox-sdk-services seems to be fully under this license:\\nhttps://github.com/mapbox/mapbox-java/blob/main/LICENSE\\n",
+      "gradle_signatures": [
+        "com\\\\.mapbox(?!\\\\.mapboxsdk:mapbox-sdk-services)"
+      ],
+      "license": "NonFree"
+    },
+    "com.onesignal": {
+      "gradle_signatures": [
+        "com.onesignal:OneSignal"
+      ],
+      "license": "NonFree"
+    },
+    "com.tencent.bugly": {
+      "gradle_signatures": [
+        "com.tencent.bugly"
+      ],
+      "license": "NonFree"
+    },
+    "com.umeng.umsdk": {
+      "gradle_signatures": [
+        "com.umeng.umsdk"
+      ],
+      "license": "NonFree"
+    },
+    "com.yandex.android": {
+      "gradle_signatures": [
+        "com\\\\.yandex\\\\.android(?!:authsdk)"
+      ],
+      "license": "NonFree"
+    },
+    "com.yayandroid": {
+      "gradle_signatures": [
+        "com.yayandroid:LocationManager"
+      ],
+      "license": "NonFree"
+    },
+    "crashlytics": {
+      "gradle_signatures": [
+        "crashlytics"
+      ],
+      "license": "NonFree"
+    },
+    "crittercism": {
+      "gradle_signatures": [
+        "crittercism"
+      ],
+      "license": "NonFree"
+    },
+    "firebase": {
+      "gradle_signatures": [
+        "com(\\\\.google)?\\\\.firebase[.:](?!firebase-jobdispatcher|geofire-java)"
+      ],
+      "license": "NonFree"
+    },
+    "flurryagent": {
+      "gradle_signatures": [
+        "flurryagent"
+      ],
+      "license": "NonFree"
+    },
+    "google-ad": {
+      "gradle_signatures": [
+        "google.*ad.*view"
+      ],
+      "license": "NonFree"
+    },
+    "google.admob": {
+      "gradle_signatures": [
+        "google.*admob"
+      ],
+      "license": "NonFree"
+    },
+    "google.play.services": {
+      "gradle_signatures": [
+        "google.*play.*services"
+      ],
+      "license": "NonFree"
+    },
+    "heyzap": {
+      "gradle_signatures": [
+        "heyzap"
+      ],
+      "license": "NonFree"
+    },
+    "io.github.sinaweibosdk": {
+      "gradle_signatures": [
+        "io.github.sinaweibosdk"
+      ],
+      "license": "NonFree"
+    },
+    "io.objectbox": {
+      "gradle_signatures": [
+        "io.objectbox:objectbox-gradle-plugin"
+      ],
+      "license": "NonFree"
+    },
+    "jpct": {
+      "gradle_signatures": [
+        "jpct.*ae"
+      ],
+      "license": "NonFree"
+    },
+    "libspen23": {
+      "gradle_signatures": [
+        "libspen23"
+      ],
+      "license": "NonFree"
+    },
+    "me.pushy": {
+      "gradle_signatures": [
+        "me.pushy:sdk"
+      ],
+      "license": "NonFree"
+    },
+    "org.jetbrains.kotlinx": {
+      "gradle_signatures": [
+        "org.jetbrains.kotlinx:kotlinx-coroutines-play-services"
+      ],
+      "license": "NonFree"
+    },
+    "ouya": {
+      "gradle_signatures": [
+        "ouya.*sdk"
+      ],
+      "license": "NonFree"
+    },
+    "paypal": {
+      "gradle_signatures": [
+        "paypal.*mpl"
+      ],
+      "license": "NonFree"
+    },
+    "xyz.belvi.mobilevision": {
+      "gradle_signatures": [
+        "xyz.belvi.mobilevision:barcodescanner"
+      ],
+      "license": "NonFree"
+    },
+    "youtube": {
+      "gradle_signatures": [
+        "youtube.*android.*player.*api"
+      ],
+      "license": "NonFree"
+    }
+  },
+  "timestamp": 1664480104.875586,
+  "version": 1,
+  "last_updated": 1664480104.875586
+}'''

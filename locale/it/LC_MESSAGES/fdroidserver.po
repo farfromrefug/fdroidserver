@@ -1,7 +1,7 @@
 # SOME DESCRIPTIVE TITLE.
 # Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
 # This file is distributed under the same license as the PACKAGE package.
-# random r <epsilin@yopmail.com>, 2020.
+# random r <epsilin@yopmail.com>, 2020, 2022.
 # Luca Zambarda <luke.zambarda@gmail.com>, 2020.
 # IvanDan <ivandanza@gmail.com>, 2020, 2021.
 # Massimiliano Caniparoli <massic80@gmail.com>, 2020.
@@ -10,20 +10,22 @@
 # Francesco Saltori <francescosaltori@gmail.com>, 2020.
 # Francesco Esposito <email@francescoesposito.org>, 2021.
 # mondstern <mondstern@snopyta.org>, 2021.
+# Frankie McEyes <mceyes@protonmail.com>, 2022.
+# Antonello Pirina <fardeledge@tutanota.com>, 2022.
 msgid ""
 msgstr ""
 "Project-Id-Version: fdroidserver 0.9\n"
 "Report-Msgid-Bugs-To: https://gitlab.com/fdroid/fdroidserver/issues\n"
-"POT-Creation-Date: 2022-02-15 20:04+0100\n"
-"PO-Revision-Date: 2021-03-03 06:19+0000\n"
-"Last-Translator: mondstern <mondstern@snopyta.org>\n"
+"POT-Creation-Date: 2022-09-06 22:24+0200\n"
+"PO-Revision-Date: 2022-06-28 20:54+0000\n"
+"Last-Translator: Antonello Pirina <fardeledge@tutanota.com>\n"
 "Language-Team: Italian <https://hosted.weblate.org/projects/f-droid/fdroidserver/it/>\n"
 "Language: it\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=n != 1;\n"
-"X-Generator: Weblate 4.5\n"
+"X-Generator: Weblate 4.13.1-dev\n"
 
 #: ../fdroidserver/common.py
 msgid ""
@@ -72,9 +74,9 @@ msgid "\"%s/\" has no matching metadata file!"
 msgstr "\"%s/\" non ha un file di metadati corrispondente!"
 
 #: ../fdroidserver/index.py
-#, fuzzy, python-brace-format
+#, python-brace-format
 msgid "\"local_copy_dir\" {path} does not exist!"
-msgstr "La directory principale per local_copy_dir \"{path}\" non esiste!"
+msgstr "La directory principale per \"local_copy_dir\" {path} non esiste!"
 
 #: ../fdroidserver/index.py
 msgid "\"repo_pubkey\" must be present in config.yml when using --nosign!"
@@ -111,17 +113,17 @@ msgid "\"{path}\" is not an accepted format, convert to: {formats}"
 msgstr "\"{path}\" non è un formato accettato, convertire a: {formats}"
 
 #: ../fdroidserver/update.py
-#, fuzzy, python-brace-format
+#, python-brace-format
 msgid "\"{path}\" is signed by a key that is not allowed:"
-msgstr "\"{path}\" esiste ma s3cmd non è installato!"
+msgstr "\"{path}\" è firmato da una chiave non autorizzata:"
 
-#: ../fdroidserver/common.py
+#: ../fdroidserver/common.py ../fdroidserver/import_subcommand.py
 #, python-brace-format
 msgid "\"{url}\" is not a valid URL!"
 msgstr "\"{url}\" non è un URL valido!"
 
 #: /usr/lib/python3.5/optparse.py /usr/lib/python3.6/optparse.py
-#: /usr/lib/python3.7/optparse.py
+#: /usr/lib/python3.7/optparse.py /usr/lib/python3.9/optparse.py
 #, python-format
 msgid "%(option)s option requires %(number)d argument"
 msgid_plural "%(option)s option requires %(number)d arguments"
@@ -134,7 +136,7 @@ msgid "%(prog)s [options] url"
 msgstr "%(prog)s [options] url"
 
 #: /usr/lib/python3.5/argparse.py /usr/lib/python3.6/argparse.py
-#: /usr/lib/python3.7/argparse.py
+#: /usr/lib/python3.7/argparse.py /usr/lib/python3.9/argparse.py
 #, python-format
 msgid "%(prog)s: error: %(message)s\n"
 msgstr "%(prog)s: errore: %(message)s\n"
@@ -145,12 +147,12 @@ msgid "%d problems found"
 msgstr "trovati %d problemi"
 
 #: /usr/lib/python3.5/optparse.py /usr/lib/python3.6/optparse.py
-#: /usr/lib/python3.7/optparse.py
+#: /usr/lib/python3.7/optparse.py /usr/lib/python3.9/optparse.py
 msgid "%prog [options]"
 msgstr "%prog [opzioni]"
 
 #: /usr/lib/python3.5/argparse.py /usr/lib/python3.6/argparse.py
-#: /usr/lib/python3.7/argparse.py
+#: /usr/lib/python3.7/argparse.py /usr/lib/python3.9/argparse.py
 #, python-format
 msgid "%r is not callable"
 msgstr "%r non è richiamabile"
@@ -161,7 +163,7 @@ msgid "%s is not an accepted build field"
 msgstr "%s non è un campo di build accettato"
 
 #: /usr/lib/python3.5/optparse.py /usr/lib/python3.6/optparse.py
-#: /usr/lib/python3.7/optparse.py
+#: /usr/lib/python3.7/optparse.py /usr/lib/python3.9/optparse.py
 #, python-format
 msgid "%s option does not take a value"
 msgstr "l'opzione %s non accetta un valore"
@@ -187,7 +189,7 @@ msgid "'repo_keyalias' not found in config.yml!"
 msgstr "\"repo_keyalias\" non trovato in config.yml!"
 
 #: /usr/lib/python3.5/argparse.py /usr/lib/python3.6/argparse.py
-#: /usr/lib/python3.7/argparse.py
+#: /usr/lib/python3.7/argparse.py /usr/lib/python3.9/argparse.py
 msgid "'required' is an invalid argument for positionals"
 msgstr "\"required\" è un argomento invalido per i posizionali"
 
@@ -243,7 +245,7 @@ msgid "...checkupdate failed for {appid} : {error}"
 msgstr "...checkupdate fallito per {appid}:{error}"
 
 #: /usr/lib/python3.5/argparse.py /usr/lib/python3.6/argparse.py
-#: /usr/lib/python3.7/argparse.py
+#: /usr/lib/python3.7/argparse.py /usr/lib/python3.9/argparse.py
 msgid ".__call__() not defined"
 msgstr ".__call__() non definita"
 
@@ -284,7 +286,7 @@ msgstr "Aggiungendo un repository solo per {name}"
 msgid "Alias of the repo signing key in the keystore"
 msgstr "Alias della chiave di firma del repository nel keystore"
 
-#: ../fdroidserver/import.py
+#: ../fdroidserver/import.py ../fdroidserver/import_subcommand.py
 msgid "Allows a different revision (or git branch) to be specified for the initial import"
 msgstr "Permetti di specificare una revisione (o branch git) diversa per l'importazione iniziale"
 
@@ -338,9 +340,9 @@ msgid "Android SDK tool {cmd} found!"
 msgstr "Android SDK tool {cmd} trovato!"
 
 #: ../fdroidserver/common.py
-#, fuzzy, python-brace-format
+#, python-brace-format
 msgid "Android SDK tool {cmd} not found!"
-msgstr "Android SDK tool {cmd} trovato!"
+msgstr "Strumento Android SDK {cmd} non trovato!"
 
 #. Translators: "build-tools" is the file name of a package from
 #. Google, it is part of the Android SDK. So it probably shouldn't be
@@ -420,7 +422,7 @@ msgstr "Costruito il repository in \"%s\" con questa configurazione:"
 
 #: ../fdroidserver/checkupdates.py
 msgid "Can't auto-update app with no CurrentVersionCode"
-msgstr ""
+msgstr "Impossibile aggiornare automaticamente app prive del CurrentVersionCode"
 
 #: ../fdroidserver/build.py
 msgid "Can't build due to {} error while scanning"
@@ -480,7 +482,7 @@ msgstr "Controllo dell'archiviazione per {appid} - apks:{integer}, keepversions:
 msgid "Clean update - don't uses caches, reprocess all APKs"
 msgstr "Aggiornamento pulito - non usa cache, riprocessa tutti gli APK"
 
-#: ../fdroidserver/import.py
+#: ../fdroidserver/import.py ../fdroidserver/import_subcommand.py
 msgid "Comma separated list of categories."
 msgstr "Lista di categorie separate da una virgola."
 
@@ -507,11 +509,11 @@ msgstr "File di configurazione in conflitto! Utilizzando {newfile}, ignorando {o
 msgid "Could not find '{command}' on your system"
 msgstr "Impossibile trovare \"{command}\" sul tuo sistema"
 
-#: ../fdroidserver/import.py
+#: ../fdroidserver/import.py ../fdroidserver/import_subcommand.py
 msgid "Could not find latest version code"
 msgstr "Impossibile trovare il codice della versione più recente"
 
-#: ../fdroidserver/import.py
+#: ../fdroidserver/import.py ../fdroidserver/import_subcommand.py
 msgid "Could not find latest version name"
 msgstr "Impossibile trovare il nome della versione più recente"
 
@@ -531,14 +533,13 @@ msgid "Could not parse size \"{size}\", wrong type \"{type}\""
 msgstr "Impossibile analizzare la dimensione \"{size}\", tipo sbagliato \"{type}\""
 
 #. Translators: https://developer.android.com/studio/build/application-id
-#: ../fdroidserver/import.py
+#: ../fdroidserver/import.py ../fdroidserver/import_subcommand.py
 msgid "Couldn't find Application ID"
 msgstr "Impossibile trovare l'ID dell'applicazione"
 
 #: ../fdroidserver/checkupdates.py
-#, fuzzy
 msgid "Couldn't find any version information"
-msgstr "Impossibile trovare il nome dell'ultima versione"
+msgstr "Impossibile trovare informazioni sulla versione"
 
 #. Translators: https://developer.android.com/guide/topics/manifest/manifest-element.html#vcode
 #: ../fdroidserver/import.py
@@ -649,7 +650,7 @@ msgstr "La descrizione ha un elenco (%s) ma non è puntato (*) né numerato (#)"
 msgid "Description of length {length} is over the {limit} char limit"
 msgstr "La descrizione di lunghezza {length} supera il limite di {limit} caratteri"
 
-#: ../fdroidserver/import.py
+#: ../fdroidserver/import.py ../fdroidserver/import_subcommand.py
 msgid "Do not add 'disable:' to the generated build entries"
 msgstr "Non aggiungere 'disable:' alle voci di compilazione generate"
 
@@ -698,7 +699,7 @@ msgstr "Scarica registri che non abbiamo"
 #: ../fdroidserver/common.py
 #, python-format
 msgid "Downloading %s"
-msgstr ""
+msgstr "Scaricando %s"
 
 #: ../fdroidserver/common.py
 msgid "Downloading the repository already failed once, not trying again."
@@ -739,6 +740,11 @@ msgstr ""
 msgid "ERROR: unsupported CI type, patches welcome!"
 msgstr "ERRORE: tipo di CI non supportato, le patch sono benvenute!"
 
+#: ../fdroidserver/nightly.py
+#, fuzzy, python-format
+msgid "ERROR: unsupported git host \"%s\", patches welcome!"
+msgstr "ERRORE: tipo di CI non supportato, le patch sono benvenute!"
+
 #: ../fdroidserver/metadata.py
 #, python-brace-format
 msgid "Empty build flag at {linedesc}"
@@ -770,8 +776,13 @@ msgid "Error while attempting to publish log: %s"
 msgstr "Errore tentando di pubblicare il log: %s"
 
 #: ../fdroidserver/import.py ../fdroidserver/common.py
+#: ../fdroidserver/import_subcommand.py
 msgid "Error while getting repo address"
 msgstr "Errore nell'ottenere l'indirizzo del repo"
+
+#: ../fdroidserver/__main__.py
+msgid "Extract application metadata from a source repository"
+msgstr ""
 
 #: ../fdroid ../fdroidserver/__main__.py
 msgid "Extract signatures from APKs"
@@ -821,9 +832,8 @@ msgid "Failed to get APK manifest information"
 msgstr "Impossibile ottenere informazioni del manifest dell’APK"
 
 #: ../fdroidserver/update.py
-#, fuzzy
 msgid "Failed to get APK signing key fingerprint"
-msgstr "Impossibile ottenere informazioni del manifest dell’APK"
+msgstr "Impossibile ottenere l'impronta digitale della chiave di firma del pacchetto APK"
 
 #: ../fdroidserver/install.py
 #, python-brace-format
@@ -956,9 +966,8 @@ msgid "Git fetch failed"
 msgstr "Recupero Git non riuscito"
 
 #: ../fdroidserver/common.py
-#, fuzzy
 msgid "Git prune failed"
-msgstr "Ripristino Git non riuscito"
+msgstr "Cancellazione Git non riuscita"
 
 #: ../fdroidserver/common.py
 msgid "Git remote set-head failed"
@@ -1037,12 +1046,12 @@ msgstr "Includere i tarball dei sorgenti nel mirror"
 #: ../fdroidserver/metadata.py
 #, python-format
 msgid "Including metadata from %s@%s"
-msgstr ""
+msgstr "Includo metadati da %s@%s"
 
 #: ../fdroidserver/metadata.py
 #, python-brace-format
 msgid "Including metadata from {path}"
-msgstr ""
+msgstr "Includo metadati da {path}"
 
 #: ../fdroidserver/common.py
 msgid "Initialising submodules"
@@ -1087,12 +1096,12 @@ msgstr "APK non valido"
 #: ../fdroidserver/checkupdates.py
 #, python-brace-format
 msgid "Invalid AutoUpdateMode: {mode}"
-msgstr ""
+msgstr "Modalità di aggiornamento automatico non valida: {mode}"
 
 #: ../fdroidserver/checkupdates.py
-#, fuzzy, python-brace-format
+#, python-brace-format
 msgid "Invalid UpdateCheckMode: {mode}"
-msgstr "Nome del pacchetto non valido {0}"
+msgstr "Modalità di controllo aggiornamento non valida: {mode}"
 
 #: ../fdroidserver/lint.py ../fdroidserver/checkupdates.py
 #, python-brace-format
@@ -1149,7 +1158,7 @@ msgstr "Nome non valido per il file pubblicato: %s"
 #: ../fdroidserver/common.py
 #, python-brace-format
 msgid "Invalid ndk: entry in build: \"{ndk}\""
-msgstr ""
+msgstr "nkd non valido: entry nella compilazione: \"{ndk}\""
 
 #: ../fdroidserver/common.py
 #, python-brace-format
@@ -1213,9 +1222,9 @@ msgid "Javascript in HTML src attributes"
 msgstr "Javascript negli attributi HTML src"
 
 #: ../fdroidserver/build.py
-#, fuzzy, python-brace-format
+#, python-brace-format
 msgid "Keeping failed build \"{apkfilename}\""
-msgstr "Lettura di minSdkVersion non riuscita: \"{apkfilename}\""
+msgstr "Mantenimento della build fallita \"{apkfilename}\""
 
 #: ../fdroidserver/init.py
 msgid "Keystore for signing key:\t"
@@ -1239,9 +1248,8 @@ msgid "List files that would be reformatted"
 msgstr "Elenca i file che verrebbero riformattati"
 
 #: ../fdroidserver/rewritemeta.py
-#, fuzzy
 msgid "List files that would be reformatted (dry run)"
-msgstr "Elenca i file che verrebbero riformattati"
+msgstr "Elenca i file che verrebbero riformattati (simulazione)"
 
 #: ../fdroidserver/lint.py
 msgid "Locale included in f-droid.org URL"
@@ -1259,6 +1267,11 @@ msgstr "Mirror del repository malformati."
 msgid "Malformed serverwebroot line:"
 msgstr "Riga del serverwebroot malformata:"
 
+#: ../fdroidserver/scanner.py
+#, python-format
+msgid "Max recursion depth in ZIP file reached: %s"
+msgstr ""
+
 #: ../fdroidserver/mirror.py
 msgid "Mirror the full repo and archive, all file types."
 msgstr "Rispecchiare il repository completo e l'archivio, tutti i tipi di file."
@@ -1272,14 +1285,18 @@ msgstr "Directory di output mancante"
 msgid "Name '%s' is just the auto name - remove it"
 msgstr "Il nome '%s' è solo il nome automatico - rimuovilo"
 
+#: ../fdroidserver/index.py
+msgid "Neither \"repo_pubkey\" nor \"keystorepass\" set in config.yml"
+msgstr ""
+
 #: ../fdroidserver/common.py
 msgid "No 'config.yml' found, using defaults."
 msgstr "Nessun 'config.yml' trovato, utilizzando i valori predefiniti."
 
 #: ../fdroidserver/verify.py
-#, fuzzy, python-format
+#, python-format
 msgid "No APK for package: %s"
-msgstr "Nessun pacchetto di questo tipo: %s"
+msgstr "Nessun APK per il pacchetto: %s"
 
 #: ../fdroidserver/common.py
 msgid "No Android SDK found!"
@@ -1310,23 +1327,23 @@ msgstr "Nessuna impronta digitale nell'URL."
 msgid "No git submodules available"
 msgstr "Nessun sottomodulo git disponibile"
 
-#: ../fdroidserver/import.py
+#: ../fdroidserver/import.py ../fdroidserver/import_subcommand.py
 msgid "No gradle project could be found. Specify --subdir?"
 msgstr "Nessun progetto gradle è stato trovato. Specificare --subdir?"
 
 #: ../fdroidserver/import.py ../fdroidserver/common.py
+#: ../fdroidserver/import_subcommand.py
 msgid "No information found."
 msgstr "Nessun informazione trovata."
 
 #: ../fdroidserver/checkupdates.py
-#, fuzzy
 msgid "No matching tags found"
-msgstr "Nessun informazione trovata."
+msgstr "Nessuna etichetta corrispondente trovata"
 
 #: ../fdroidserver/update.py
-#, fuzzy, python-brace-format
+#, python-brace-format
 msgid "No minimum SDK version found in {0}, using default (3)."
-msgstr "Nessun config.yml trovato, utilizzando i valori predefiniti."
+msgstr "Nessuna versione minima dell'SDK trovata in {0}, viene usata la predefinita (3)."
 
 #: ../fdroidserver/lint.py
 msgid "No need to specify that the app is Free Software"
@@ -1370,9 +1387,8 @@ msgid "No such versionCode {versionCode} for app {appid}"
 msgstr "Nessun versionCode di questo tipo {versionCode} per l'app {appid}"
 
 #: ../fdroidserver/checkupdates.py
-#, fuzzy
 msgid "No tags found"
-msgstr "Nessun dispositivo collegato trovato"
+msgstr "Nessuna etichetta trovata"
 
 #: ../fdroidserver/verify.py ../fdroidserver/publish.py
 msgid "No unsigned directory - nothing to do"
@@ -1440,7 +1456,7 @@ msgid "OpenCollective donation methods belong in the OpenCollective: field"
 msgstr "I metodi di donazione di OpenCollective appartengono al campo OpenCollective"
 
 #: /usr/lib/python3.5/optparse.py /usr/lib/python3.6/optparse.py
-#: /usr/lib/python3.7/optparse.py
+#: /usr/lib/python3.7/optparse.py /usr/lib/python3.9/optparse.py
 msgid "Options"
 msgstr "Opzioni"
 
@@ -1458,7 +1474,7 @@ msgstr "Invia l'output del JSON allo stdout."
 msgid "Outputting JSON"
 msgstr "Output di JSON"
 
-#: ../fdroidserver/import.py
+#: ../fdroidserver/import.py ../fdroidserver/import_subcommand.py
 msgid "Overall license of the project."
 msgstr "Licenza generale del progetto."
 
@@ -1467,7 +1483,7 @@ msgstr "Licenza generale del progetto."
 msgid "Overriding blank versionName in {apkfilename} from metadata: {version}"
 msgstr "Sostituzione di versionName vuoto in {apkfilename} dai metadati: {version}"
 
-#: ../fdroidserver/import.py
+#: ../fdroidserver/import.py ../fdroidserver/import_subcommand.py
 #, python-brace-format
 msgid "Package \"{appid}\" already exists"
 msgstr "Pacchetto \"{appid}\" già esistente"
@@ -1481,7 +1497,7 @@ msgstr "Analisi del manifesto in '{path}'"
 msgid "Password required with username"
 msgstr "Password richiesta con nome utente"
 
-#: ../fdroidserver/import.py
+#: ../fdroidserver/import.py ../fdroidserver/import_subcommand.py
 msgid "Path to main Android project subdirectory, if not in root."
 msgstr "Percorso alla sottodirectory principale del progetto Android, se non in root."
 
@@ -1503,6 +1519,11 @@ msgstr "Percorso del keystore per la chiave di firma del repository"
 #: ../fdroidserver/nightly.py
 msgid "Print the secret variable to the terminal for easy copy/paste"
 msgstr "Stampa la variabile segreta sul terminale per un facile copia/incolla"
+
+#: ../fdroidserver/scanner.py
+#, python-format
+msgid "Problem with ZIP file: %s, error %s"
+msgstr ""
 
 #: ../fdroidserver/metadata.py
 #, python-brace-format
@@ -1536,7 +1557,7 @@ msgstr "Produci XML/JSON leggibili dagli utenti per i file di indice"
 msgid "Produce human-readable index.xml"
 msgstr "Produci un index.xml leggibile"
 
-#: ../fdroidserver/import.py
+#: ../fdroidserver/import.py ../fdroidserver/import_subcommand.py
 msgid "Project URL to import from."
 msgstr "URL del progetto da cui importare."
 
@@ -1599,7 +1620,7 @@ msgstr "Rimozione dei file specificati"
 #: ../fdroidserver/update.py
 #, python-brace-format
 msgid "Removing {path}\""
-msgstr ""
+msgstr "Rimozione di {path}\""
 
 #: ../fdroidserver/update.py
 msgid "Rename APK files that do not match package.name_123.apk"
@@ -1674,6 +1695,11 @@ msgid "Scan the source code of a package"
 msgstr "Scansiona il codice sorgente di un pacchetto"
 
 #: ../fdroidserver/scanner.py
+#, fuzzy, python-brace-format
+msgid "Scanner found {count} problems in {apk}:"
+msgstr "Scanner trovato {count} problemi in {appid}:"
+
+#: ../fdroidserver/scanner.py
 #, python-brace-format
 msgid "Scanner found {count} problems in {appid}:"
 msgstr "Scanner trovato {count} problemi in {appid}:"
@@ -1690,9 +1716,13 @@ msgstr[0] "Scanner trovato {} problema"
 msgstr[1] "Scanner trovato {} problemi"
 
 #: ../fdroidserver/scanner.py
-#, fuzzy
 msgid "Scanning APK with apkanalyzer for known non-free classes."
-msgstr "Scansiona gli APK risultanti per le classi non libere note."
+msgstr "Scansiona gli APK con apkanalyzer per le classi non libere note."
+
+#: ../fdroidserver/scanner.py
+#, fuzzy
+msgid "Scanning APK with dexdump for known non-free classes."
+msgstr "Scansiona gli APK con apkanalyzer per le classi non libere note."
 
 #: ../fdroidserver/common.py
 #, python-brace-format
@@ -1745,7 +1775,7 @@ msgstr "Saltare '{apkfilename} con firma non valida!"
 #: ../fdroidserver/index.py
 #, python-format
 msgid "Skipping GitLab Pages mirror because the repo is too large (>%.2fGB)!"
-msgstr ""
+msgstr "Saltando il mirror di GitLab Pages perché la repo è troppo grande (>%.2fGB)!"
 
 #: ../fdroidserver/update.py
 #, python-brace-format
@@ -1871,7 +1901,7 @@ msgstr "Queste sono le applicazioni che sono state archiviate dal repo principal
 msgid "This is a repository of apps to be used with F-Droid. Applications in this repository are either official binaries built by the original application developers, or are binaries built from source by the admin of f-droid.org using the tools on https://gitlab.com/fdroid."
 msgstr "Questo è un repository di applicazioni da utilizzare con F-Droid. Le applicazioni in questo repository sono o binari ufficiali compilati dagli sviluppatori dell'applicazione originale, o sono binari compilati dai sorgenti dall'amministratore di f-droid.org usando gli strumenti su https://gitlab.com/fdroid."
 
-#: ../fdroidserver/import.py
+#: ../fdroidserver/import.py ../fdroidserver/import_subcommand.py
 #, python-format
 msgid "This repo already has local metadata: %s"
 msgstr "Questo repo ha già metadati locali: %s"
@@ -2105,12 +2135,12 @@ msgid "Uploading {apkfilename} to virustotal"
 msgstr "Caricamento di {apkfilename} su virustotal"
 
 #: /usr/lib/python3.5/optparse.py /usr/lib/python3.6/optparse.py
-#: /usr/lib/python3.7/optparse.py
+#: /usr/lib/python3.7/optparse.py /usr/lib/python3.9/optparse.py
 msgid "Usage"
 msgstr "Uso"
 
 #: /usr/lib/python3.5/optparse.py /usr/lib/python3.6/optparse.py
-#: /usr/lib/python3.7/optparse.py
+#: /usr/lib/python3.7/optparse.py /usr/lib/python3.9/optparse.py
 #, python-format
 msgid "Usage: %s\n"
 msgstr "Utilizzo: %s\n"
@@ -2222,21 +2252,20 @@ msgid "adding to {name}: {path}"
 msgstr "aggiungendo a {name}: {path}"
 
 #: /usr/lib/python3.5/argparse.py /usr/lib/python3.6/argparse.py
-#: /usr/lib/python3.7/argparse.py
+#: /usr/lib/python3.7/argparse.py /usr/lib/python3.9/argparse.py
 #, python-format
 msgid "ambiguous option: %(option)s could match %(matches)s"
 msgstr "opzione ambigua: %(option)s potrebbe corrispondere a %(matches)s"
 
 #: /usr/lib/python3.5/optparse.py /usr/lib/python3.6/optparse.py
-#: /usr/lib/python3.7/optparse.py
+#: /usr/lib/python3.7/optparse.py /usr/lib/python3.9/optparse.py
 #, python-format
 msgid "ambiguous option: %s (%s?)"
 msgstr "opzione ambigua: %s (%s?)"
 
 #: ../fdroidserver/common.py
-#, fuzzy
 msgid "apksigner not found! Cannot sign or verify modern APKs"
-msgstr "apksigner non trovato, è necessario per la firma!"
+msgstr "apksigner non trovato! Impossibile firmare o verificare gli APK moderni"
 
 #: ../fdroidserver/common.py
 msgid "apksigner not found, it's required for signing!"
@@ -2268,8 +2297,12 @@ msgstr "applicationId per controllare gli aggiornamenti"
 msgid "applicationId with optional versionCode in the form APPID[:VERCODE]"
 msgstr "applicationId con versionCode opzionale nella forma APPID[:VERCODE]"
 
+#: ../fdroidserver/common.py
+msgid "archive_url needs to end with /archive"
+msgstr ""
+
 #: /usr/lib/python3.5/argparse.py /usr/lib/python3.6/argparse.py
-#: /usr/lib/python3.7/argparse.py
+#: /usr/lib/python3.7/argparse.py /usr/lib/python3.9/argparse.py
 #, python-format
 msgid "argument \"-\" with mode %r"
 msgstr "argomento \" -\" con la modalità %r"
@@ -2286,6 +2319,11 @@ msgstr "tentativo di connessione ssh nuda per testare la chiave di distribuzione
 msgid "can not parse scrlib spec (not a string): '{}'"
 msgstr "impossibile analizzare le specifiche scrlib (non una stringa): '{}'"
 
+#: /usr/lib/python3.9/argparse.py
+#, fuzzy, python-format
+msgid "can't open '%(filename)s': %(error)s"
+msgstr "impossibile aprire \"%s\": %s"
+
 #: /usr/lib/python3.5/argparse.py /usr/lib/python3.6/argparse.py
 #: /usr/lib/python3.7/argparse.py
 #, python-format
@@ -2298,12 +2336,12 @@ msgid "cannot find required srclibs: \"{path}\""
 msgstr "impossibile trovare srclibs richiesto: \"{path}\""
 
 #: /usr/lib/python3.5/argparse.py /usr/lib/python3.6/argparse.py
-#: /usr/lib/python3.7/argparse.py
+#: /usr/lib/python3.7/argparse.py /usr/lib/python3.9/argparse.py
 msgid "cannot have multiple subparser arguments"
 msgstr "impossibile avere più argomenti subparser"
 
 #: /usr/lib/python3.5/argparse.py /usr/lib/python3.6/argparse.py
-#: /usr/lib/python3.7/argparse.py
+#: /usr/lib/python3.7/argparse.py /usr/lib/python3.9/argparse.py
 #, python-format
 msgid "cannot merge actions - two groups are named %r"
 msgstr "impossibile unire le azioni : due gruppi sono denominati %r"
@@ -2326,12 +2364,12 @@ msgid "commands from plugin modules:"
 msgstr "dai moduli dei plugin:"
 
 #: /usr/lib/python3.5/optparse.py /usr/lib/python3.6/optparse.py
-#: /usr/lib/python3.7/optparse.py
+#: /usr/lib/python3.7/optparse.py /usr/lib/python3.9/optparse.py
 msgid "complex"
 msgstr "complesso"
 
 #: /usr/lib/python3.5/argparse.py /usr/lib/python3.6/argparse.py
-#: /usr/lib/python3.7/argparse.py
+#: /usr/lib/python3.7/argparse.py /usr/lib/python3.9/argparse.py
 #, python-format
 msgid "conflicting option string: %s"
 msgid_plural "conflicting option strings: %s"
@@ -2382,7 +2420,7 @@ msgid "deployed process log {path} to {dest}"
 msgstr "log di processo distribuito {path} a {dest}"
 
 #: /usr/lib/python3.5/argparse.py /usr/lib/python3.6/argparse.py
-#: /usr/lib/python3.7/argparse.py
+#: /usr/lib/python3.7/argparse.py /usr/lib/python3.9/argparse.py
 #, python-format
 msgid "dest= is required for options like %r"
 msgstr "dest= è richiesto per opzioni come %r"
@@ -2392,7 +2430,7 @@ msgid "executable binary, possibly code"
 msgstr "binario eseguibile, eventualmente codice"
 
 #: /usr/lib/python3.5/argparse.py /usr/lib/python3.6/argparse.py
-#: /usr/lib/python3.7/argparse.py
+#: /usr/lib/python3.7/argparse.py /usr/lib/python3.9/argparse.py
 #, python-format
 msgid "expected %s argument"
 msgid_plural "expected %s arguments"
@@ -2400,17 +2438,17 @@ msgstr[0] "atteso %s argomento"
 msgstr[1] "atteso %s argomenti"
 
 #: /usr/lib/python3.5/argparse.py /usr/lib/python3.6/argparse.py
-#: /usr/lib/python3.7/argparse.py
+#: /usr/lib/python3.7/argparse.py /usr/lib/python3.9/argparse.py
 msgid "expected at least one argument"
 msgstr "si aspettava almeno un argomento"
 
 #: /usr/lib/python3.5/argparse.py /usr/lib/python3.6/argparse.py
-#: /usr/lib/python3.7/argparse.py
+#: /usr/lib/python3.7/argparse.py /usr/lib/python3.9/argparse.py
 msgid "expected at most one argument"
 msgstr "atteso al massimo un argomento"
 
 #: /usr/lib/python3.5/argparse.py /usr/lib/python3.6/argparse.py
-#: /usr/lib/python3.7/argparse.py
+#: /usr/lib/python3.7/argparse.py /usr/lib/python3.9/argparse.py
 msgid "expected one argument"
 msgstr "atteso un argomento"
 
@@ -2428,7 +2466,7 @@ msgid "fdroid [<command>] [-h|--help|--version|<args>]"
 msgstr "fdroid [<command>] [-h|--help|--version|<args>]"
 
 #: /usr/lib/python3.5/optparse.py /usr/lib/python3.6/optparse.py
-#: /usr/lib/python3.7/optparse.py
+#: /usr/lib/python3.7/optparse.py /usr/lib/python3.9/optparse.py
 msgid "floating-point"
 msgstr "in virgola mobile"
 
@@ -2449,7 +2487,7 @@ msgid "gzip file archive"
 msgstr "archivio file gzip"
 
 #: /usr/lib/python3.5/argparse.py /usr/lib/python3.6/argparse.py
-#: /usr/lib/python3.7/argparse.py
+#: /usr/lib/python3.7/argparse.py /usr/lib/python3.9/argparse.py
 #, python-format
 msgid "ignored explicit argument %r"
 msgstr "ignorava l'argomento esplicito %r"
@@ -2458,31 +2496,36 @@ msgstr "ignorava l'argomento esplicito %r"
 msgid "index-v1 must have a signature, use `fdroid signindex` to create it!"
 msgstr "index-v1 deve avere una firma, usa `fdroid signindex` per crearla!"
 
+#: ../fdroidserver/index.py
+#, fuzzy
+msgid "index-v2 must have a signature, use `fdroid signindex` to create it!"
+msgstr "index-v1 deve avere una firma, usa `fdroid signindex` per crearla!"
+
 #: /usr/lib/python3.5/optparse.py /usr/lib/python3.6/optparse.py
-#: /usr/lib/python3.7/optparse.py
+#: /usr/lib/python3.7/optparse.py /usr/lib/python3.9/optparse.py
 msgid "integer"
 msgstr "intero"
 
 #: /usr/lib/python3.5/argparse.py /usr/lib/python3.6/argparse.py
-#: /usr/lib/python3.7/argparse.py
+#: /usr/lib/python3.7/argparse.py /usr/lib/python3.9/argparse.py
 #, python-format
 msgid "invalid %(type)s value: %(value)r"
 msgstr "valore %(type)s non valido: %(value)r"
 
 #: /usr/lib/python3.5/argparse.py /usr/lib/python3.6/argparse.py
-#: /usr/lib/python3.7/argparse.py
+#: /usr/lib/python3.7/argparse.py /usr/lib/python3.9/argparse.py
 #, python-format
 msgid "invalid choice: %(value)r (choose from %(choices)s)"
 msgstr "scelta non valida: %(value)r (scegliere tra %(choices)s)"
 
 #: /usr/lib/python3.5/argparse.py /usr/lib/python3.6/argparse.py
-#: /usr/lib/python3.7/argparse.py
+#: /usr/lib/python3.7/argparse.py /usr/lib/python3.9/argparse.py
 #, python-format
 msgid "invalid conflict_resolution value: %r"
 msgstr "valore di risoluzione dei conflitti non valido: %r"
 
 #: /usr/lib/python3.5/argparse.py /usr/lib/python3.6/argparse.py
-#: /usr/lib/python3.7/argparse.py
+#: /usr/lib/python3.7/argparse.py /usr/lib/python3.9/argparse.py
 #, python-format
 msgid "invalid option string %(option)r: must start with a character %(prefix_chars)r"
 msgstr "stringa di opzioni non valida %(option)r: deve iniziare con un carattere %(prefix_chars)r"
@@ -2511,7 +2554,7 @@ msgid "mirror '%s' does not end with 'fdroid'!"
 msgstr "il mirror '%s' non finisce con 'fdroid'!"
 
 #: /usr/lib/python3.5/argparse.py /usr/lib/python3.6/argparse.py
-#: /usr/lib/python3.7/argparse.py
+#: /usr/lib/python3.7/argparse.py /usr/lib/python3.9/argparse.py
 msgid "mutually exclusive arguments must be optional"
 msgstr "gli argomenti che si escludono a vicenda devono essere opzionali"
 
@@ -2525,7 +2568,7 @@ msgid "no APK supplied"
 msgstr "nessun APK fornito"
 
 #: /usr/lib/python3.5/optparse.py /usr/lib/python3.6/optparse.py
-#: /usr/lib/python3.7/optparse.py
+#: /usr/lib/python3.7/optparse.py /usr/lib/python3.9/optparse.py
 #, python-format
 msgid "no such option: %s"
 msgstr "opzione inesistente: %s"
@@ -2535,18 +2578,17 @@ msgid "no version info found!"
 msgstr "nessuna informazione sulla versione è stata trovata!"
 
 #: ../fdroidserver/checkupdates.py
-#, fuzzy
 msgid "no version information found"
-msgstr "nessuna informazione sulla versione è stata trovata!"
+msgstr "nessuna informazione sulla versione trovata"
 
 #: /usr/lib/python3.5/argparse.py /usr/lib/python3.6/argparse.py
-#: /usr/lib/python3.7/argparse.py
+#: /usr/lib/python3.7/argparse.py /usr/lib/python3.9/argparse.py
 #, python-format
 msgid "not allowed with argument %s"
 msgstr "non consentito con argomento %s"
 
 #: /usr/lib/python3.5/argparse.py /usr/lib/python3.6/argparse.py
-#: /usr/lib/python3.7/argparse.py
+#: /usr/lib/python3.7/argparse.py /usr/lib/python3.9/argparse.py
 #, python-format
 msgid "one of the arguments %s is required"
 msgstr "uno degli argomenti %s è richiesto"
@@ -2561,55 +2603,55 @@ msgid "option %s: If you really want to install all the signed apps, use --all"
 msgstr "opzione %s: Se volete davvero installare tutte le app firmate, usate --all"
 
 #: /usr/lib/python3.5/optparse.py /usr/lib/python3.6/optparse.py
-#: /usr/lib/python3.7/optparse.py
+#: /usr/lib/python3.7/optparse.py /usr/lib/python3.9/optparse.py
 #, python-format
 msgid "option %s: invalid %s value: %r"
 msgstr "opzione %s: valore %s non valido: %r"
 
 #: /usr/lib/python3.5/optparse.py /usr/lib/python3.6/optparse.py
-#: /usr/lib/python3.7/optparse.py
+#: /usr/lib/python3.7/optparse.py /usr/lib/python3.9/optparse.py
 #, python-format
 msgid "option %s: invalid choice: %r (choose from %s)"
 msgstr "opzione %s: scelta non valida: %r (scegliere da %s)"
 
 #: /usr/lib/python3.5/getopt.py /usr/lib/python3.6/getopt.py
-#: /usr/lib/python3.7/getopt.py
+#: /usr/lib/python3.7/getopt.py /usr/lib/python3.9/getopt.py
 #, python-format
 msgid "option -%s not recognized"
 msgstr "opzione -%s non riconosciuta"
 
 #: /usr/lib/python3.5/getopt.py /usr/lib/python3.6/getopt.py
-#: /usr/lib/python3.7/getopt.py
+#: /usr/lib/python3.7/getopt.py /usr/lib/python3.9/getopt.py
 #, python-format
 msgid "option -%s requires argument"
 msgstr "l'opzione -%s richiede degli argomenti"
 
 #: /usr/lib/python3.5/getopt.py /usr/lib/python3.6/getopt.py
-#: /usr/lib/python3.7/getopt.py
+#: /usr/lib/python3.7/getopt.py /usr/lib/python3.9/getopt.py
 #, python-format
 msgid "option --%s must not have an argument"
 msgstr "l'opzione --%s non deve avere argomenti"
 
 #: /usr/lib/python3.5/getopt.py /usr/lib/python3.6/getopt.py
-#: /usr/lib/python3.7/getopt.py
+#: /usr/lib/python3.7/getopt.py /usr/lib/python3.9/getopt.py
 #, python-format
 msgid "option --%s not a unique prefix"
 msgstr "l'opzione --%s non ha un prefisso univoco"
 
 #: /usr/lib/python3.5/getopt.py /usr/lib/python3.6/getopt.py
-#: /usr/lib/python3.7/getopt.py
+#: /usr/lib/python3.7/getopt.py /usr/lib/python3.9/getopt.py
 #, python-format
 msgid "option --%s not recognized"
 msgstr "opzione --%s non riconosciuta"
 
 #: /usr/lib/python3.5/getopt.py /usr/lib/python3.6/getopt.py
-#: /usr/lib/python3.7/getopt.py
+#: /usr/lib/python3.7/getopt.py /usr/lib/python3.9/getopt.py
 #, python-format
 msgid "option --%s requires argument"
 msgstr "l'opzione --%s richiede un argomento"
 
 #: /usr/lib/python3.5/argparse.py /usr/lib/python3.6/argparse.py
-#: /usr/lib/python3.7/argparse.py
+#: /usr/lib/python3.7/argparse.py /usr/lib/python3.9/argparse.py
 msgid "optional arguments"
 msgstr "argomenti facoltativi"
 
@@ -2619,7 +2661,7 @@ msgid "overwriting existing {path}"
 msgstr "sovrascrivendo il {path} esistente"
 
 #: /usr/lib/python3.5/argparse.py /usr/lib/python3.6/argparse.py
-#: /usr/lib/python3.7/argparse.py
+#: /usr/lib/python3.7/argparse.py /usr/lib/python3.9/argparse.py
 msgid "positional arguments"
 msgstr "argomenti posizionali"
 
@@ -2648,6 +2690,10 @@ msgstr "repo_icon \"repo/icons/%s\" non esiste, genera un segnaposto."
 msgid "repo_icon %s does not exist, generating placeholder."
 msgstr "repo_icon %s non esiste, genera un segnaposto."
 
+#: ../fdroidserver/common.py
+msgid "repo_url needs to end with /repo"
+msgstr ""
+
 #: ../fdroidserver/metadata.py
 msgid "ruamel.yaml not installed, can not write metadata."
 msgstr "ruamel.yaml non installato, non può scrivere metadati."
@@ -2667,13 +2713,14 @@ msgid "shared library"
 msgstr "biblioteca condivisa"
 
 #: /usr/lib/python3.5/optparse.py /usr/lib/python3.6/optparse.py
-#: /usr/lib/python3.7/optparse.py
+#: /usr/lib/python3.7/optparse.py /usr/lib/python3.9/optparse.py
 msgid "show program's version number and exit"
 msgstr "mostra il numero di versione del programma ed esci"
 
 #: /usr/lib/python3.5/argparse.py /usr/lib/python3.5/optparse.py
 #: /usr/lib/python3.6/argparse.py /usr/lib/python3.6/optparse.py
 #: /usr/lib/python3.7/argparse.py /usr/lib/python3.7/optparse.py
+#: /usr/lib/python3.9/argparse.py /usr/lib/python3.9/optparse.py
 msgid "show this help message and exit"
 msgstr "mostra questo messaggio di aiuto ed esci"
 
@@ -2708,25 +2755,25 @@ msgid "supplied timestamp value '{timestamp}' is not a unix timestamp"
 msgstr "il valore di timestamp fornito '{timestamp}' non è un timestamp unix"
 
 #: /usr/lib/python3.5/argparse.py /usr/lib/python3.6/argparse.py
-#: /usr/lib/python3.7/argparse.py
+#: /usr/lib/python3.7/argparse.py /usr/lib/python3.9/argparse.py
 #, python-format
 msgid "the following arguments are required: %s"
 msgstr "i seguenti argomenti sono obbligatori: %s"
 
 #: /usr/lib/python3.5/argparse.py /usr/lib/python3.6/argparse.py
-#: /usr/lib/python3.7/argparse.py
+#: /usr/lib/python3.7/argparse.py /usr/lib/python3.9/argparse.py
 #, python-format
 msgid "unexpected option string: %s"
 msgstr "stringa di opzioni inaspettata: %s"
 
 #: /usr/lib/python3.5/argparse.py /usr/lib/python3.6/argparse.py
-#: /usr/lib/python3.7/argparse.py
+#: /usr/lib/python3.7/argparse.py /usr/lib/python3.9/argparse.py
 #, python-format
 msgid "unknown parser %(parser_name)r (choices: %(choices)s)"
 msgstr "parser sconosciuto %(parser_name)r (scelte: %(choices)s)"
 
 #: /usr/lib/python3.5/argparse.py /usr/lib/python3.6/argparse.py
-#: /usr/lib/python3.7/argparse.py
+#: /usr/lib/python3.7/argparse.py /usr/lib/python3.9/argparse.py
 #, python-format
 msgid "unrecognized arguments: %s"
 msgstr "argomenti sconosciuti: %s"
@@ -2738,6 +2785,7 @@ msgstr "permessi su \"{config_file}\" insicuri (dovrebbero essere 0600)!"
 
 #: /usr/lib/python3.5/argparse.py /usr/lib/python3.6/argparse.py ../fdroid
 #: /usr/lib/python3.7/argparse.py ../fdroidserver/__main__.py
+#: /usr/lib/python3.9/argparse.py
 msgid "usage: "
 msgstr "utilizzo: "
 
@@ -2866,7 +2914,7 @@ msgstr "{name} \"{section}/icons/{path}\" non esiste! Controlla \"config.yml\"."
 msgid "{oldfile} is deprecated, use {newfile}"
 msgstr "{oldfile} è deprecato, usa {newfile}"
 
-#: ../fdroidserver/import.py
+#: ../fdroidserver/import.py ../fdroidserver/import_subcommand.py
 #, python-brace-format
 msgid "{path} already exists, ignoring import results!"
 msgstr "{path} esiste già, ignorando i risultati dell'importazione!"
@@ -2901,7 +2949,7 @@ msgstr "Copia non riuscita {path}: {error}"
 msgid "{url} does not end with \"fdroid\", check the URL path!"
 msgstr "{url} non finisce con \"fdroid\", controlla il percorso dell'URL!"
 
-#: ../fdroidserver/common.py
+#: ../fdroidserver/common.py ../fdroidserver/import_subcommand.py
 #, python-brace-format
 msgid "{url} does not start with \"http\"!"
 msgstr "{url} non inizia con \"http\"!"

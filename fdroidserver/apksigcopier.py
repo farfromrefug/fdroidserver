@@ -99,6 +99,7 @@ class ReproducibleZipInfo(zipfile.ZipInfo):
     _override = {}  # type: Dict[str, Union[int, Tuple[int, ...]]]
 
     def __init__(self, zinfo, **override):
+        super().__init__()
         if override:
             self._override = {**self._override, **override}
         for k in self.__slots__:
@@ -146,8 +147,8 @@ def noautoyes(value):
         return value
     try:
         return {False: NO, None: AUTO, True: YES}[value]
-    except KeyError:
-        raise ValueError("expected False, None, or True")
+    except KeyError as exc:
+        raise ValueError("expected False, None, or True") from exc
 
 
 def is_meta(filename):

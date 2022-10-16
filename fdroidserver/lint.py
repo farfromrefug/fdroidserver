@@ -240,10 +240,10 @@ def get_lastbuild(builds):
     lastbuild = None
     for build in builds:
         if not build.disable:
-            vercode = int(build.versionCode)
+            vercode = build.versionCode
             if lowest_vercode == -1 or vercode < lowest_vercode:
                 lowest_vercode = vercode
-        if not lastbuild or int(build.versionCode) > int(lastbuild.versionCode):
+        if not lastbuild or build.versionCode > lastbuild.versionCode:
             lastbuild = build
     return lastbuild
 
@@ -262,10 +262,21 @@ def check_update_check_data_url(app):  # noqa: D403
 
 
 def check_vercode_operation(app):
-    if app.VercodeOperation and not common.VERCODE_OPERATION_RE.match(
-        app.VercodeOperation
-    ):
-        yield _('Invalid VercodeOperation: {field}').format(field=app.VercodeOperation)
+    if not app.VercodeOperation:
+        return
+    ops = (
+        [app.VercodeOperation]
+        if isinstance(app.VercodeOperation, str)
+        else app.VercodeOperation
+    )
+    invalid_ops = []
+    for op in ops:
+        if not common.VERCODE_OPERATION_RE.match(op):
+            invalid_ops += op
+    if invalid_ops:
+        yield _('Invalid VercodeOperation: {invalid_ops}').format(
+            invalid_ops=invalid_ops
+        )
 
 
 def check_ucm_tags(app):
@@ -327,13 +338,10 @@ filling_ucms = re.compile(r'^(Tags.*|RepoManifest.*)')
 
 def check_checkupdates_ran(app):
     if filling_ucms.match(app.UpdateCheckMode):
-        if (
-            not app.AutoName
-            and not app.CurrentVersion
-            and app.CurrentVersionCode == '0'
-        ):
+        if not app.AutoName and not app.CurrentVersion and app.CurrentVersionCode == 0:
             yield _(
-                "UpdateCheckMode is set but it looks like checkupdates hasn't been run yet"
+                "UpdateCheckMode is set but it looks like"
+                "checkupdates hasn't been run yet"
             )
 
 
@@ -637,7 +645,7 @@ def check_current_version_code(app):
     if archive_policy and archive_policy.split()[0] == "0":
         return
     cv = app.get('CurrentVersionCode')
-    if cv is not None and int(cv) == 0:
+    if cv is not None and cv == 0:
         return
 
     builds = app.get('Builds')
@@ -645,7 +653,7 @@ def check_current_version_code(app):
     min_versionCode = None
     if builds:
         for build in builds:
-            vc = int(build['versionCode'])
+            vc = build['versionCode']
             if min_versionCode is None or min_versionCode > vc:
                 min_versionCode = vc
             if not build.get('disable'):
@@ -654,11 +662,23 @@ def check_current_version_code(app):
                 break
     if active_builds == 0:
         return  # all builds are disabled
-    if cv is not None and int(cv) < min_versionCode:
+    if cv is not None and cv < min_versionCode:
         yield (
             _(
                 'CurrentVersionCode {cv} is less than oldest build entry {versionCode}'
             ).format(cv=cv, versionCode=min_versionCode)
+        )
+
+
+def check_updates_expected(app):
+    """Check if update checking makes sense."""
+    if (
+        app.get('NoSourceSince') or app.get('ArchivePolicy') == '0 versions'
+    ) and not all(
+        app.get(key, 'None') == 'None' for key in ('AutoUpdateMode', 'UpdateCheckMode')
+    ):
+        yield _(
+            'App has NoSourceSince or ArchivePolicy "0 versions" but AutoUpdateMode or UpdateCheckMode are not None'
         )
 
 
@@ -768,6 +788,7 @@ def main():
             check_format,
             check_license_tag,
             check_current_version_code,
+            check_updates_expected,
         ]
 
         for check_func in app_check_funcs:
@@ -805,10 +826,8 @@ APPROVED_LICENSES = [
     'Artistic-1.0-Perl',
     'Artistic-1.0-cl8',
     'Artistic-2.0',
-    'Beerware',
     'BSD-1-Clause',
     'BSD-2-Clause',
-    'BSD-2-Clause-FreeBSD',
     'BSD-2-Clause-Patent',
     'BSD-3-Clause',
     'BSD-3-Clause-Clear',
@@ -880,7 +899,6 @@ APPROVED_LICENSES = [
     'LiLiQ-Rplus-1.1',
     'MIT',
     'MIT-0',
-    'MIT-CMU',
     'MPL-1.0',
     'MPL-1.1',
     'MPL-2.0',
@@ -946,7 +964,6 @@ APPROVED_LICENSES = [
     'X11',
     'XFree86-1.1',
     'Xnet',
-    'XSkat',
     'YPL-1.1',
     'ZPL-2.0',
     'ZPL-2.1',

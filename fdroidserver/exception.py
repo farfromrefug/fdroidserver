@@ -1,5 +1,6 @@
 class FDroidException(Exception):
     def __init__(self, value=None, detail=None):
+        super().__init__()
         self.value = value
         self.detail = detail
 
@@ -23,6 +24,7 @@ class FDroidException(Exception):
 
 class MetaDataException(Exception):
     def __init__(self, value):
+        super().__init__()
         self.value = value
 
     def __str__(self):
@@ -43,3 +45,10 @@ class BuildException(FDroidException):
 
 class VerificationException(FDroidException):
     pass
+
+
+class ConfigurationException(FDroidException):
+    def __init__(self, value=None, detail=None):
+        super().__init__()
+        self.value = value
+        self.detail = detail

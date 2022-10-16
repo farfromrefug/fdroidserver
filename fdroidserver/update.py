@@ -34,7 +34,7 @@ import json
 import time
 import yaml
 import copy
-from datetime import datetime
+from datetime import datetime, timezone
 from argparse import ArgumentParser
 from pathlib import Path
 
@@ -58,7 +58,7 @@ if hasattr(Image, 'DecompressionBombWarning'):
     warnings.simplefilter('error', Image.DecompressionBombWarning)
 Image.MAX_IMAGE_PIXELS = 0xffffff  # 4096x4096
 
-METADATA_VERSION = 20001
+METADATA_VERSION = 20002
 
 # less than the valid range of versionCode, i.e. Java's Integer.MIN_VALUE
 UNSET_VERSION_CODE = -0x100000000
@@ -108,7 +108,7 @@ def px_to_dpi(px):
 
 
 def get_icon_dir(repodir, density):
-    if density == '0' or density == '65534':
+    if density in ('0', '65534'):
         return os.path.join(repodir, "icons")
     else:
         return os.path.join(repodir, "icons-%s" % density)
@@ -168,7 +168,7 @@ def status_update_json(apps, apks):
         gotcurrentver = False
         for apk in apks:
             if apk['packageName'] == appid:
-                if str(apk['versionCode']) == app.get('CurrentVersionCode'):
+                if apk['versionCode'] == app.get('CurrentVersionCode'):
                     gotcurrentver = True
                 apklist.append(apk)
         validapks = 0
@@ -181,7 +181,7 @@ def status_update_json(apps, apks):
                 if not build.get('disable'):
                     builtit = False
                     for apk in apklist:
-                        if apk['versionCode'] == int(build.versionCode):
+                        if apk['versionCode'] == build.versionCode:
                             builtit = True
                             validapks += 1
                             break
@@ -493,8 +493,9 @@ def insert_obbs(repodir, apps, apks):
             if packagename == apk['packageName'] and apk['versionCode'] > highestVersionCode:
                 highestVersionCode = apk['versionCode']
         if versionCode > highestVersionCode:
-            obbWarnDelete(f, _('OBB file has newer versionCode({integer}) than any APK:')
-                          .format(integer=str(versionCode)))
+            obbWarnDelete(f, _(
+                'OBB file has newer versionCode({integer}) than any APK:'
+            ).format(integer=versionCode))
             continue
         obbsha256 = common.sha256sum(f)
         obbs.append((packagename, versionCode, obbfile, obbsha256))
@@ -533,7 +534,7 @@ def translate_per_build_anti_features(apps, apks):
         for build in app.get('Builds', []):
             afl = build.get('antifeatures')
             if afl:
-                d[int(build.versionCode)] = afl
+                d[build.versionCode] = afl
         if len(d) > 0:
             antiFeatures[packageName] = d
 
@@ -554,7 +555,7 @@ def _get_localized_dict(app, locale):
     return app['localized'][locale]
 
 
-def _set_localized_text_entry(app, locale, key, f):
+def _set_localized_text_entry(app, locale, key, f, versionCode=None):
     """Read a fastlane/triple-t metadata file and add an entry to the app.
 
     This reads more than the limit, in case there is leading or
@@ -563,9 +564,17 @@ def _set_localized_text_entry(app, locale, key, f):
     """
     try:
         limit = config['char_limits'][key]
-        localized = _get_localized_dict(app, locale)
+        if not versionCode:
+            localized = _get_localized_dict(app, locale)
         with open(f, errors='replace') as fp:
             text = fp.read(limit * 2)
+            if versionCode:
+                for build in app["Builds"]:
+                    if build["versionCode"] == versionCode:
+                        if "whatsNew" not in build:
+                            build["whatsNew"] = collections.OrderedDict()
+                        build["whatsNew"][locale] = text[:limit]
+                        return
             if len(text) > 0:
                 if key in ('name', 'summary', 'video'):  # hardcoded as a single line
                     localized[key] = text.strip('\n')[:limit]
@@ -639,7 +648,7 @@ def _strip_and_copy_image(in_file, outpath):
         except Exception as e:
             logging.error(_("Failed copying {path}: {error}".format(path=in_file, error=e)))
             return
-    elif extension == 'jpg' or extension == 'jpeg':
+    elif extension in ('jpg', 'jpeg'):
         try:
             with open(in_file, 'rb') as fp:
                 in_image = Image.open(fp)
@@ -743,9 +752,9 @@ def insert_funding_yml_donation_links(apps):
                     app['OpenCollective'] = s
             if not app.get('Donate'):
                 if 'liberapay' in data:
-                    del(data['liberapay'])
+                    del data['liberapay']
                 if 'open_collective' in data:
-                    del(data['open_collective'])
+                    del data['open_collective']
                 # this tuple provides a preference ordering
                 for k in ('custom', 'github', 'patreon', 'community_bridge', 'ko_fi', 'issuehunt'):
                     v = data.get(k)
@@ -858,16 +867,16 @@ def copy_triple_t_store_metadata(apps):
                     locale = segments[-2]
 
                 for f in files:
-                    if f == 'fulldescription' or f == 'full-description.txt':
+                    if f in ('fulldescription', 'full-description.txt'):
                         _set_localized_text_entry(app, locale, 'description',
                                                   os.path.join(root, f))
-                    elif f == 'shortdescription' or f == 'short-description.txt':
+                    elif f in ('shortdescription', 'short-description.txt'):
                         _set_localized_text_entry(app, locale, 'summary',
                                                   os.path.join(root, f))
-                    elif f == 'title' or f == 'title.txt':
+                    elif f in ('title', 'title.txt'):
                         _set_localized_text_entry(app, locale, 'name',
                                                   os.path.join(root, f))
-                    elif f == 'video' or f == 'video-url.txt':
+                    elif f in ('video', 'video-url.txt'):
                         _set_localized_text_entry(app, locale, 'video',
                                                   os.path.join(root, f))
                     elif f == 'whatsnew':
@@ -876,11 +885,11 @@ def copy_triple_t_store_metadata(apps):
                     elif f == 'default.txt' and segments[-2] == 'release-notes':
                         _set_localized_text_entry(app, locale, 'whatsNew',
                                                   os.path.join(root, f))
-                    elif f == 'contactEmail' or f == 'contact-email.txt':
+                    elif f in ('contactEmail', 'contact-email.txt'):
                         _set_author_entry(app, 'authorEmail', os.path.join(root, f))
-                    elif f == 'contactPhone' or f == 'contact-phone.txt':
+                    elif f in ('contactPhone', 'contact-phone.txt'):
                         _set_author_entry(app, 'authorPhone', os.path.join(root, f))
-                    elif f == 'contactWebsite' or f == 'contact-website.txt':
+                    elif f in ('contactWebsite', 'contact-website.txt'):
                         _set_author_entry(app, 'authorWebSite', os.path.join(root, f))
                     else:
                         base, extension = common.get_extension(f)
@@ -987,15 +996,40 @@ def insert_localized_app_metadata(apps):
                     locale = segments[-2]
                     _set_localized_text_entry(apps[packageName], locale, 'whatsNew',
                                               os.path.join(root, f))
-                    continue
 
                 base, extension = common.get_extension(f)
+
+                if extension == 'txt':
+                    try:
+                        versionCode = int(base)
+                        locale = segments[-2]
+                        if versionCode in [
+                            a["versionCode"] for a in apps[packageName]["Builds"]
+                        ]:
+                            _set_localized_text_entry(
+                                apps[packageName],
+                                locale,
+                                'whatsNew',
+                                os.path.join(root, f),
+                                versionCode,
+                            )
+                        continue
+                    except ValueError:
+                        pass
+
                 if locale == 'images':
                     locale = segments[-2]
                     destdir = os.path.join('repo', packageName, locale)
                 if base in GRAPHIC_NAMES and extension in ALLOWED_EXTENSIONS:
                     os.makedirs(destdir, mode=0o755, exist_ok=True)
                     _strip_and_copy_image(os.path.join(root, f), destdir)
+                    dst = os.path.join(destdir, f)
+                    if os.path.isfile(dst):
+                        if base == "icon":
+                            base = "iconv2"
+                        if base not in apps[packageName] or not isinstance(apps[packageName][base], collections.OrderedDict):
+                            apps[packageName][base] = collections.OrderedDict()
+                        apps[packageName][base][locale] = index.file_entry(dst)
             for d in dirs:
                 if d in SCREENSHOT_DIRS:
                     if locale == 'images':
@@ -1044,12 +1078,26 @@ def insert_localized_app_metadata(apps):
                     if not os.path.exists(index_file):
                         os.link(f, index_file, follow_symlinks=False)
                     graphics[base] = filename
+                    if base == "icon":
+                        base = "iconv2"
+                    if base not in apps[packageName] or not isinstance(apps[packageName][base], collections.OrderedDict):
+                        apps[packageName][base] = collections.OrderedDict()
+                    apps[packageName][base][locale] = index.file_entry(index_file)
             elif screenshotdir in SCREENSHOT_DIRS:
                 # there can any number of these per locale
                 logging.debug(_('adding to {name}: {path}').format(name=screenshotdir, path=f))
                 if screenshotdir not in graphics:
                     graphics[screenshotdir] = []
                 graphics[screenshotdir].append(filename)
+
+                newKey = screenshotdir.replace("Screenshots", "")
+                if "screenshots" not in apps[packageName]:
+                    apps[packageName]["screenshots"] = collections.OrderedDict()
+                if newKey not in apps[packageName]["screenshots"]:
+                    apps[packageName]["screenshots"][newKey] = collections.OrderedDict()
+                if locale not in apps[packageName]["screenshots"][newKey]:
+                    apps[packageName]["screenshots"][newKey][locale] = []
+                apps[packageName]["screenshots"][newKey][locale].append(index.file_entry(f))
             else:
                 logging.warning(_('Unsupported graphics file found: {path}').format(path=f))
 
@@ -1073,7 +1121,7 @@ def scan_repo_files(apkcache, repodir, knownapks, use_date_from_file=False):
     repodir = repodir.encode()
     for name in os.listdir(repodir):
         file_extension = common.get_file_extension(name)
-        if file_extension == 'apk' or file_extension == 'obb':
+        if file_extension in ('apk', 'obb'):
             continue
         filename = os.path.join(repodir, name)
         name_utf8 = name.decode()
@@ -1108,6 +1156,7 @@ def scan_repo_files(apkcache, repodir, knownapks, use_date_from_file=False):
             repo_file['apkName'] = name_utf8
             repo_file['hash'] = shasum
             repo_file['hashType'] = 'sha256'
+            repo_file['ipfsCIDv1'] = common.calculate_IPFS_cid(name_utf8)
             repo_file['versionCode'] = 0
             repo_file['versionName'] = shasum[0:7]
             # the static ID is the SHA256 unless it is set in the metadata
@@ -1127,7 +1176,7 @@ def scan_repo_files(apkcache, repodir, knownapks, use_date_from_file=False):
 
         if use_date_from_file:
             timestamp = stat.st_ctime
-            default_date_param = time.gmtime(time.mktime(datetime.fromtimestamp(timestamp).timetuple()))
+            default_date_param = datetime.fromtimestamp(timestamp, tz=timezone.utc)
         else:
             default_date_param = None
 
@@ -1172,6 +1221,9 @@ def scan_apk(apk_file, require_signature=True):
         'icons': {},
         'antiFeatures': set(),
     }
+    ipfsCIDv1 = common.calculate_IPFS_cid(apk_file)
+    if ipfsCIDv1:
+        apk['ipfsCIDv1'] = ipfsCIDv1
 
     scan_apk_androguard(apk, apk_file)
 
@@ -1277,7 +1329,7 @@ def scan_apk_androguard(apk, apkfile):
     except (FileNotFoundError, zipfile.BadZipFile) as e:
         logging.error(_("Could not open APK {path} for analysis: ").format(path=apkfile)
                       + str(e))
-        raise BuildException(_("Invalid APK"))
+        raise BuildException(_("Invalid APK")) from e
 
     apk['packageName'] = apkobject.get_package()
 
@@ -1365,8 +1417,10 @@ def scan_apk_androguard(apk, apkfile):
         if key not in item.attrib:
             continue
         feature = str(item.attrib[key])
-        if feature != "android.hardware.screen.portrait" \
-                and feature != "android.hardware.screen.landscape":
+        if feature not in (
+            'android.hardware.screen.portrait',
+            'android.hardware.screen.landscape',
+        ):
             if feature.startswith("android.feature."):
                 feature = feature[16:]
         required = item.attrib.get(xmlns + 'required')
@@ -1375,7 +1429,7 @@ def scan_apk_androguard(apk, apkfile):
 
 
 def process_apk(apkcache, apkfilename, repodir, knownapks, use_date_from_apk=False,
-                allow_disabled_algorithms=False, archive_bad_sig=False):
+                allow_disabled_algorithms=False, archive_bad_sig=False, apps=None):
     """Process the apk with the given filename in the given repo directory.
 
     This also extracts the icons.
@@ -1427,6 +1481,12 @@ def process_apk(apkcache, apkfilename, repodir, knownapks, use_date_from_apk=Fal
             logging.warning(_("Skipping '{apkfilename}' with invalid signature!")
                             .format(apkfilename=apkfilename))
             return True, None, False
+
+        if apps:
+            if apk['packageName'] in apps:
+                for build in apps[apk['packageName']].get('Builds', []):
+                    if build['versionCode'] == apk['versionCode'] and build['disable']:
+                        return True, None, False
 
         # Check for debuggable apks...
         if common.is_apk_and_debuggable(apkfile):
@@ -1520,7 +1580,7 @@ def process_apk(apkcache, apkfilename, repodir, knownapks, use_date_from_apk=Fal
     return False, apk, cachechanged
 
 
-def process_apks(apkcache, repodir, knownapks, use_date_from_apk=False):
+def process_apks(apkcache, repodir, knownapks, use_date_from_apk=False, apps=None):
     """Process the apks in the given repo directory.
 
     This also extracts the icons.
@@ -1556,7 +1616,7 @@ def process_apks(apkcache, repodir, knownapks, use_date_from_apk=False):
         apkfilename = apkfile[len(repodir) + 1:]
         ada = disabled_algorithms_allowed()
         (skip, apk, cachethis) = process_apk(apkcache, apkfilename, repodir, knownapks,
-                                             use_date_from_apk, ada, True)
+                                             use_date_from_apk, ada, True, apps)
         if skip:
             continue
         apks.append(apk)
@@ -1757,7 +1817,7 @@ def apply_info_from_latest_apk(apps, apks):
         else:
             app.icon = bestapk['icon'] if 'icon' in bestapk else None
             if app.get('CurrentVersionCode') is None:
-                app['CurrentVersionCode'] = str(bestver)
+                app['CurrentVersionCode'] = bestver
 
 
 def make_categories_txt(repodir, categories):
@@ -1776,7 +1836,7 @@ def archive_old_apks(apps, apks, archapks, repodir, archivedir, defaultkeepversi
         for apk in apk_list:
             if apk['packageName'] == appid:
                 if app.get('CurrentVersionCode') is not None:
-                    if apk['versionCode'] == common.version_code_string_to_int(app['CurrentVersionCode']):
+                    if apk['versionCode'] == app['CurrentVersionCode']:
                         currentVersionApk = apk
                         continue
                 apkList.append(apk)
@@ -1839,6 +1899,7 @@ def move_apk_between_sections(from_dir, to_dir, apk):
     logging.info("Moving %s from %s to %s" % (apk['apkName'], from_dir, to_dir))
     _move_file(from_dir, to_dir, apk['apkName'], False)
     _move_file(from_dir, to_dir, apk['apkName'] + '.asc', True)
+    _move_file(from_dir, to_dir, apk['apkName'] + '.idsig', True)
     _move_file(from_dir, to_dir, apk['apkName'][:-4] + '.log.gz', True)
     for density in all_screen_densities:
         from_icon_dir = get_icon_dir(from_dir, density)
@@ -1848,6 +1909,7 @@ def move_apk_between_sections(from_dir, to_dir, apk):
         _move_file(from_icon_dir, to_icon_dir, apk['icons'][density], True)
     if 'srcname' in apk:
         _move_file(from_dir, to_dir, apk['srcname'], False)
+        _move_file(from_dir, to_dir, apk['srcname'] + '.asc', True)
 
 
 def add_apks_to_per_app_repos(repodir, apks):
@@ -2169,7 +2231,8 @@ def main():
     delete_disabled_builds(apps, apkcache, repodirs)
 
     # Scan all apks in the main repo
-    apks, cachechanged = process_apks(apkcache, repodirs[0], knownapks, options.use_date_from_apk)
+    apks, cachechanged = process_apks(apkcache, repodirs[0], knownapks,
+                                      options.use_date_from_apk, apps)
 
     files, fcachechanged = scan_repo_files(apkcache, repodirs[0], knownapks,
                                            options.use_date_from_apk)
@@ -2177,10 +2240,11 @@ def main():
     apks += files
     appid_has_apks = set()
     appid_has_repo_files = set()
+    remove_apks = []
     for apk in apks:
         to_remove = get_apks_without_allowed_signatures(apps.get(apk['packageName']), apk)
         if to_remove:
-            apks.remove(apk)
+            remove_apks.append(apk)
             logging.warning(
                 _('"{path}" is signed by a key that is not allowed:').format(
                     path=to_remove
@@ -2217,6 +2281,9 @@ def main():
                 else:
                     logging.warning(msg + '\n\t' + _('Use `fdroid update -c` to create it.'))
 
+    for apk in remove_apks:
+        apks.remove(apk)
+
     mismatch_errors = ''
     for appid in appid_has_apks:
         if appid in appid_has_repo_files:
@@ -2228,7 +2295,8 @@ def main():
 
     # Scan the archive repo for apks as well
     if len(repodirs) > 1:
-        archapks, cc = process_apks(apkcache, repodirs[1], knownapks, options.use_date_from_apk)
+        archapks, cc = process_apks(apkcache, repodirs[1], knownapks,
+                                    options.use_date_from_apk, apps)
         if cc:
             cachechanged = True
     else:

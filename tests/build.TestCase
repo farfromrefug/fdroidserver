@@ -26,6 +26,7 @@ import fdroidserver.build
 import fdroidserver.common
 import fdroidserver.metadata
 import fdroidserver.scanner
+import fdroidserver.vmtools
 
 
 class FakeProcess:
@@ -70,42 +71,42 @@ class BuildTest(unittest.TestCase):
             (
                 'repo/obb.main.twoversions_1101613.apk',
                 'obb.main.twoversions',
-                '1101613',
+                1101613,
                 '0.1',
                 None,
             ),
             (
                 'org.bitbucket.tickytacky.mirrormirror_1.apk',
                 'org.bitbucket.tickytacky.mirrormirror',
-                '1',
+                1,
                 '1.0',
                 None,
             ),
             (
                 'org.bitbucket.tickytacky.mirrormirror_2.apk',
                 'org.bitbucket.tickytacky.mirrormirror',
-                '2',
+                2,
                 '1.0.1',
                 None,
             ),
             (
                 'org.bitbucket.tickytacky.mirrormirror_3.apk',
                 'org.bitbucket.tickytacky.mirrormirror',
-                '3',
+                3,
                 '1.0.2',
                 None,
             ),
             (
                 'org.bitbucket.tickytacky.mirrormirror_4.apk',
                 'org.bitbucket.tickytacky.mirrormirror',
-                '4',
+                4,
                 '1.0.3',
                 None,
             ),
             (
                 'org.dyndns.fules.ck_20.apk',
                 'org.dyndns.fules.ck',
-                '20',
+                20,
                 'v1.6pre2',
                 [
                     'arm64-v8a',
@@ -117,81 +118,81 @@ class BuildTest(unittest.TestCase):
                     'x86_64',
                 ],
             ),
-            ('urzip.apk', 'info.guardianproject.urzip', '100', '0.1', None),
-            ('urzip-badcert.apk', 'info.guardianproject.urzip', '100', '0.1', None),
-            ('urzip-badsig.apk', 'info.guardianproject.urzip', '100', '0.1', None),
-            ('urzip-release.apk', 'info.guardianproject.urzip', '100', '0.1', None),
+            ('urzip.apk', 'info.guardianproject.urzip', 100, '0.1', None),
+            ('urzip-badcert.apk', 'info.guardianproject.urzip', 100, '0.1', None),
+            ('urzip-badsig.apk', 'info.guardianproject.urzip', 100, '0.1', None),
+            ('urzip-release.apk', 'info.guardianproject.urzip', 100, '0.1', None),
             (
                 'urzip-release-unsigned.apk',
                 'info.guardianproject.urzip',
-                '100',
+                100,
                 '0.1',
                 None,
             ),
-            ('repo/com.politedroid_3.apk', 'com.politedroid', '3', '1.2', None),
-            ('repo/com.politedroid_4.apk', 'com.politedroid', '4', '1.3', None),
-            ('repo/com.politedroid_5.apk', 'com.politedroid', '5', '1.4', None),
-            ('repo/com.politedroid_6.apk', 'com.politedroid', '6', '1.5', None),
+            ('repo/com.politedroid_3.apk', 'com.politedroid', 3, '1.2', None),
+            ('repo/com.politedroid_4.apk', 'com.politedroid', 4, '1.3', None),
+            ('repo/com.politedroid_5.apk', 'com.politedroid', 5, '1.4', None),
+            ('repo/com.politedroid_6.apk', 'com.politedroid', 6, '1.5', None),
             (
                 'repo/duplicate.permisssions_9999999.apk',
                 'duplicate.permisssions',
-                '9999999',
+                9999999,
                 '',
                 None,
             ),
             (
                 'repo/info.zwanenburg.caffeinetile_4.apk',
                 'info.zwanenburg.caffeinetile',
-                '4',
+                4,
                 '1.3',
                 None,
             ),
             (
                 'repo/obb.main.oldversion_1444412523.apk',
                 'obb.main.oldversion',
-                '1444412523',
+                1444412523,
                 '0.1',
                 None,
             ),
             (
                 'repo/obb.mainpatch.current_1619_another-release-key.apk',
                 'obb.mainpatch.current',
-                '1619',
+                1619,
                 '0.1',
                 None,
             ),
             (
                 'repo/obb.mainpatch.current_1619.apk',
                 'obb.mainpatch.current',
-                '1619',
+                1619,
                 '0.1',
                 None,
             ),
             (
                 'repo/obb.main.twoversions_1101613.apk',
                 'obb.main.twoversions',
-                '1101613',
+                1101613,
                 '0.1',
                 None,
             ),
             (
                 'repo/obb.main.twoversions_1101615.apk',
                 'obb.main.twoversions',
-                '1101615',
+                1101615,
                 '0.1',
                 None,
             ),
             (
                 'repo/obb.main.twoversions_1101617.apk',
                 'obb.main.twoversions',
-                '1101617',
+                1101617,
                 '0.1',
                 None,
             ),
             (
                 'repo/urzip-; Рахма́, [rɐxˈmanʲɪnəf] سيرجي_رخمانينوف 谢·.apk',
                 'info.guardianproject.urzip',
-                '100',
+                100,
                 '0.1',
                 None,
             ),
@@ -227,7 +228,7 @@ class BuildTest(unittest.TestCase):
         build = fdroidserver.metadata.Build()
         build.commit = '1.0'
         build.output = app.id + '.apk'
-        build.versionCode = '1'
+        build.versionCode = 1
         build.versionName = '1.0'
         build.ndk = 'r21e'  # aka 21.4.7075529
         vcs = mock.Mock()
@@ -325,7 +326,7 @@ class BuildTest(unittest.TestCase):
         build.output = app.id + '.apk'
         build.scandelete = ['baz.so']
         build.scanignore = ['foo.aar']
-        build.versionCode = '1'
+        build.versionCode = 1
         build.versionName = '1.0'
         vcs = mock.Mock()
 
@@ -401,7 +402,7 @@ class BuildTest(unittest.TestCase):
         os.chdir(testdir)
         os.mkdir("build")
 
-        config = dict()
+        config = fdroidserver.common.get_config()
         config['sdk_path'] = os.getenv('ANDROID_HOME')
         config['ndk_paths'] = {'r10d': os.getenv('ANDROID_NDK_HOME')}
         fdroidserver.common.config = config
@@ -543,6 +544,93 @@ class BuildTest(unittest.TestCase):
                 self.assertFalse(os.path.exists(test_compare_file))
                 self.assertFalse(os.path.exists(production_result))
                 self.assertFalse(os.path.exists(production_compare_file))
+
+    @mock.patch('fdroidserver.vmtools.get_build_vm')
+    @mock.patch('fdroidserver.vmtools.get_clean_builder')
+    @mock.patch('paramiko.SSHClient')
+    @mock.patch('subprocess.check_output')
+    def test_build_server_cmdline(
+        self,
+        subprocess_check_output,
+        paramiko_SSHClient,
+        fdroidserver_vmtools_get_clean_builder,
+        fdroidserver_vmtools_get_build_vm,
+    ):
+        """Test command line flags passed to the buildserver"""
+        global cmdline_args
+        test_flag = ['', False]
+
+        def _exec_command(args):
+            flag = test_flag[0]
+            if test_flag[1]:
+                self.assertTrue(flag in args, flag + ' should be present')
+            else:
+                self.assertFalse(flag in args, flag + ' should not be present')
+
+        testdir = tempfile.mkdtemp(
+            prefix=inspect.currentframe().f_code.co_name, dir=self.tmpdir
+        )
+        os.chdir(testdir)
+        os.mkdir('tmp')
+
+        chan = mock.MagicMock()
+        chan.exec_command = _exec_command
+        chan.recv_exit_status = lambda: 0
+        transport = mock.MagicMock()
+        transport.open_session = mock.Mock(return_value=chan)
+        sshs = mock.MagicMock()
+        sshs.get_transport = mock.Mock(return_value=transport)
+        paramiko_SSHClient.return_value = sshs
+        subprocess_check_output.return_value = (
+            b'0123456789abcdef0123456789abcdefcafebabe'
+        )
+        fdroidserver_vmtools_get_clean_builder.side_effect = lambda s: {
+            'hostname': 'example.com',
+            'idfile': '/path/to/id/file',
+            'port': 123,
+            'user': 'fake',
+        }
+        fdroidserver.common.config = {'sdk_path': '/fake/android/sdk/path'}
+        fdroidserver.build.options = mock.MagicMock()
+        vcs = mock.Mock()
+        vcs.getsrclib = mock.Mock(return_value=None)
+        app = fdroidserver.metadata.App()
+        app['metadatapath'] = 'metadata/fake.id.yml'
+        app['id'] = 'fake.id'
+        app['RepoType'] = 'git'
+        build = fdroidserver.metadata.Build(
+            {
+                'versionCode': 123,
+                'versionName': '1.2.3',
+                'commit': '1.2.3',
+                'disable': False,
+            }
+        )
+        app['Builds'] = [build]
+
+        test_flag = ('--on-server', True)
+        fdroidserver.build.build_server(app, build, vcs, '', '', '', False)
+        self.assertTrue(fdroidserver_vmtools_get_build_vm.called)
+
+        for force in (True, False):
+            test_flag = ('--force', force)
+            fdroidserver.build.build_server(app, build, vcs, '', '', '', force)
+
+        fdroidserver.build.options.notarball = True
+        test_flag = ('--no-tarball', True)
+        fdroidserver.build.build_server(app, build, vcs, '', '', '', False)
+        fdroidserver.build.options.notarball = False
+        test_flag = ('--no-tarball', False)
+        fdroidserver.build.build_server(app, build, vcs, '', '', '', False)
+
+        fdroidserver.build.options.skipscan = False
+        test_flag = ('--scan-binary', True)
+        fdroidserver.build.build_server(app, build, vcs, '', '', '', False)
+        fdroidserver.build.options.skipscan = True
+        test_flag = ('--scan-binary', False)
+        fdroidserver.build.build_server(app, build, vcs, '', '', '', False)
+        test_flag = ('--skip-scan', True)
+        fdroidserver.build.build_server(app, build, vcs, '', '', '', False)
 
 
 if __name__ == "__main__":

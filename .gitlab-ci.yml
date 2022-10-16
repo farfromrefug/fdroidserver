@@ -5,11 +5,20 @@ variables:
   GIT_DEPTH: 1
 
 
-# Run the whole test suite in an environment that is like the buildserver guest VM.
-ci-images-base run-tests:
-  image: registry.gitlab.com/fdroid/ci-images-base
+# Run the whole test suite in an environment that is like the
+# buildserver guest VM.  This installs python3-babel because that is
+# only used by the test suite, and not needed in the buildserver.
+#
+# Some extra packages are required for this test run that are not
+# provided by the buildserver since they are not needed there:
+# * python3-babel for compiling localization files
+# * gnupg-agent for the full signing setup
+# * python3-clint for fancy progress bars for users
+buildserver run-tests:
+  image: registry.gitlab.com/fdroid/fdroidserver:buildserver
   script:
-    - $pip install -e .
+    - apt-get update
+    - apt-get install gnupg-agent python3-babel python3-clint
     - ./tests/run-tests
     # make sure that translations do not cause stacktraces
     - cd $CI_PROJECT_DIR/locale
@@ -28,10 +37,10 @@ ci-images-base run-tests:
 # The COMMIT_ID should be bumped after each release, so that the list
 # of sed hacks needed does not continuously grow.
 metadata_v0:
-  image: registry.gitlab.com/fdroid/ci-images-base
+  image: registry.gitlab.com/fdroid/fdroidserver:buildserver
   variables:
     GIT_DEPTH: 1000
-    RELEASE_COMMIT_ID: 37c95f59a17d86723fdb71e984121726db777f32  # 2.0a5~
+    RELEASE_COMMIT_ID: b987a4af5c770472f7db8958b304b28b1e6624fd  # 2.1.1
   script:
     - git fetch https://gitlab.com/fdroid/fdroidserver.git $RELEASE_COMMIT_ID
     - cd tests
@@ -47,9 +56,9 @@ metadata_v0:
     - cd fdroiddata
     - ../tests/dump_internal_metadata_format.py
     - sed -i
-          -e '/AllowedAPKSigningKeys:/d'
-          -e '/Liberapay:/d'
-          -e '/OpenCollective/d'
+          -e "s/CurrentVersionCode:.'\([0-9]*\)'/CurrentVersionCode:\1/"
+          -e "s/  versionCode:.'\([0-9]*\)'/  versionCode:\1/"
+          -e "s/  timeout:.'\([0-9]*\)'/  timeout:\1/"
           metadata/dump_*/*.yaml
     - diff -uw metadata/dump_*
 
@@ -84,14 +93,37 @@ debian_testing:
         aapt
         androguard
         apksigner
+        dexdump
+        fdroidserver
+        git
+        gnupg
+        ipfs-cid
+        python3-defusedxml
+        python3-setuptools
+        zipalign
+    - python3 -c 'import fdroidserver'
+    - python3 -c 'import androguard'
+    - cd tests
+    - ./run-tests
+
+
+# This tests with buster-backports to match what is used on the f-droid.org publish server. 
+buster_backports:
+  image: debian:buster-backports
+  <<: *apt-template
+  script:
+    - apt-get install
+        aapt
+        androguard
+        apksigner
+        dexdump
         fdroidserver
         git
         gnupg
         python3-defusedxml
         python3-setuptools
         zipalign
-    - python3 -c 'import fdroidserver'
-    - python3 -c 'import androguard'
+    - apt-get install -t buster-backports apksigner
     - cd tests
     - ./run-tests
 
@@ -110,19 +142,19 @@ ubuntu_lts_ppa:
     - echo "deb http://ppa.launchpad.net/fdroid/fdroidserver/ubuntu $RELEASE main" >> /etc/apt/sources.list
     - apt-get update
     - apt-get dist-upgrade
-    - apt-get install --install-recommends fdroidserver git python3-setuptools
+    - apt-get install --install-recommends dexdump fdroidserver git python3-setuptools
     - cd tests
     - ./run-tests
 
 
-# Test using Ubuntu/bionic LTS (supported til 2022) with all depends
+# Test using Ubuntu/bionic LTS (supported til April, 2023) with all depends
 # from pypi.  The venv is used to isolate the dist tarball generation
 # environment from the clean install environment.
 ubuntu_bionic_pip:
   image: ubuntu:bionic
   <<: *apt-template
   script:
-    - apt-get install git default-jdk-headless python3-pip python3-venv rsync zipalign libarchive13
+    - apt-get install git default-jdk-headless python3-pip python3-venv rsync zipalign libarchive13 dexdump
     - rm -rf env
     - pyvenv env
     - . env/bin/activate
@@ -135,6 +167,11 @@ ubuntu_bionic_pip:
     - tar tzf dist/fdroidserver-*.tar.gz
     # back to bare machine to act as user's install machine
     - $pip install --upgrade pip setuptools wheel  # make this go away: "error: invalid command 'bdist_wheel'"
+
+    - export ANDROID_HOME=/opt/android-sdk
+    - $pip install sdkmanager
+    - sdkmanager 'build-tools;30.0.0'
+
     - $pip install dist/fdroidserver-*.tar.gz
     - tar xzf dist/fdroidserver-*.tar.gz
     - cd fdroidserver-*
@@ -171,11 +208,11 @@ gradlew-fdroid:
 
 # Run all the various linters and static analysis tools.
 lint_format_safety_bandit_checks:
-  image: alpine:3.13
+  image: alpine:3.16
   variables:
     LANG: C.UTF-8
   script:
-    - apk add --no-cache bash build-base dash ca-certificates gcc python3 python3-dev
+    - apk add --no-cache bash build-base dash ca-certificates gcc git python3 python3-dev
     - python3 -m ensurepip
     - $pip install Babel bandit pycodestyle pyflakes pylint safety
     - export EXITVALUE=0
@@ -187,7 +224,7 @@ lint_format_safety_bandit_checks:
         --ini .bandit
         || set_error
     - safety check --full-report || set_error
-    - pylint --rcfile=.pylint-rcfile --output-format=colorized --reports=n
+    - pylint --output-format=colorized --reports=n
             fdroid
             makebuildserver
             setup.py
@@ -202,29 +239,15 @@ lint_format_safety_bandit_checks:
     - exit $EXITVALUE
 
 
-lint_mypy:
-  image: debian:bullseye-backports
-  <<: *apt-template
-  script:
-    # use Debian packages to avoid building C/rust sources
-    - apt-get install
-          mypy
-          python3-cryptography
-          python3-pip
-          python3-wheel
-    - apt-get install -t bullseye-backports python3-pyjks
-    - pip install -e .[test]
-    - mypy
-
-
 black:
   image: python:slim
   script:
     - pip install black
-    - black --check --diff --color --skip-string-normalization
+    - black --check --diff --color
         examples/fdroid_extract_repo_pubkey.py
         examples/makebuildserver.config.py
         fdroid
+        fdroidserver/btlog.py
         fdroidserver/exception.py
         fdroidserver/gpgsign.py
         fdroidserver/lint.py
@@ -233,12 +256,13 @@ black:
         fdroidserver/readmeta.py
         fdroidserver/signindex.py
         fdroidserver/tail.py
+        fdroidserver/verify.py
         setup.py
         tests/build.TestCase
         tests/deploy.TestCase
+        tests/dump_internal_metadata_format.py
         tests/exception.TestCase
-        tests/import.TestCase
-        tests/import_proxy.py
+        tests/import_subcommand.TestCase
         tests/init.TestCase
         tests/install.TestCase
         tests/key-tricks.py
@@ -246,6 +270,9 @@ black:
         tests/metadata.TestCase
         tests/ndk-release-checksums.py
         tests/rewritemeta.TestCase
+        tests/scanner.TestCase
+        tests/signindex.TestCase
+        tests/verify.TestCase
 
 
 fedora_latest:
@@ -264,35 +291,27 @@ fedora_latest:
                      findutils
                      git
                      gnupg
-                     java-1.8.0-openjdk-devel
+                     java-17-openjdk-devel
                      python3
                      python3-babel
                      python3-matplotlib
                      python3-pip
                      rsync
-                     unzip
-                     wget
                      which
+    - $pip install sdkmanager
     - ./setup.py sdist
     - useradd -m -c "test account" --password "fakepassword"  testuser
     - su testuser --login --command "cd `pwd`; $pip install --user dist/fdroidserver-*.tar.gz"
     - test -e ~testuser/.local/share/locale/de/LC_MESSAGES/fdroidserver.mo
-    - wget --no-verbose -O tools.zip https://dl.google.com/android/repository/tools_r25.2.5-linux.zip
-    - unzip -q tools.zip
-    - rm tools.zip
     - export BUILD_TOOLS_VERSION=`sed -n "s,^MINIMUM_APKSIGNER_BUILD_TOOLS_VERSION\s*=\s*['\"]\(.*\)[['\"],\1,p" fdroidserver/common.py`
-    - export JAVA_HOME=/etc/alternatives/jre
     - export ANDROID_HOME=`pwd`/android-sdk
-    - mkdir $ANDROID_HOME
-    - mv tools $ANDROID_HOME/
     - mkdir -p $ANDROID_HOME/licenses/
     - printf "\n8933bad161af4178b1185d1a37fbf41ea5269c55\nd56f5187479451eabf01fb78af6dfcb131a6481e\n24333f8a63b6825ea9c5514f83c2829b004d1fee" > $ANDROID_HOME/licenses/android-sdk-license
     - printf "\n84831b9409646a918e30573bab4c9c91346d8abd" > $ANDROID_HOME/licenses/android-sdk-preview-license
     - printf "\n79120722343a6f314e0719f863036c702b0e6b2a\n84831b9409646a918e30573bab4c9c91346d8abd" > $ANDROID_HOME/licenses/android-sdk-preview-license-old
     - mkdir ~/.android
     - touch ~/.android/repositories.cfg
-    - echo y | $ANDROID_HOME/tools/bin/sdkmanager "platform-tools" > /dev/null
-    - echo y | $ANDROID_HOME/tools/bin/sdkmanager "build-tools;$BUILD_TOOLS_VERSION" > /dev/null
+    - sdkmanager "platform-tools" "build-tools;$BUILD_TOOLS_VERSION"
     - chown -R testuser .
     - cd tests
     - su testuser --login --command
@@ -330,11 +349,10 @@ gradle/ndk:
 
 # Run an actual build in a simple, faked version of the buildserver guest VM.
 fdroid build:
-  image: registry.gitlab.com/fdroid/ci-images-client
+  image: registry.gitlab.com/fdroid/fdroidserver:buildserver
   only:
     changes:
       - .gitlab-ci.yml
-      - buildserver/provision-apt-get-install
       - fdroidserver/build.py
       - fdroidserver/common.py
       - fdroidserver/exception.py
@@ -347,33 +365,48 @@ fdroid build:
     paths:
       - .gradle
   script:
-    - bash buildserver/provision-apt-get-install http://deb.debian.org/debian
+    - apt-get update
     - apt-get dist-upgrade
-    - apt-get install -t stretch-backports
-         python3-asn1crypto
-         python3-pip
-         python3-ruamel.yaml
-         python3-setuptools
-         python3-venv
-    - apt-get purge fdroidserver
-    - pyvenv env --system-site-packages
-    - . env/bin/activate
-    - $pip install -e .
-    - export PATH="$CI_PROJECT_DIR:$PATH"
-    - export PYTHONPATH=$CI_PROJECT_DIR
-    - export PYTHONUNBUFFERED=true
+    - apt-get clean
 
-    - git clone https://gitlab.com/fdroid/fdroiddata.git --depth 1
+    - test -n "$fdroidserver" || source /etc/profile.d/bsenv.sh
+
+    - ln -fsv "$CI_PROJECT_DIR" "$fdroidserver"
+
+    # TODO remove sdkmanager install once it is included in the buildserver image
+    - apt-get install sdkmanager
+    - rm -rf "$ANDROID_HOME/tools" # TODO remove once sdkmanager can upgrade installed packages
+    - sdkmanager "tools" "platform-tools" "build-tools;31.0.0"
+
+    - git ls-remote https://gitlab.com/fdroid/fdroiddata.git master
+    - git clone --depth 1 https://gitlab.com/fdroid/fdroiddata.git
     - cd fdroiddata
-    - test -d build || mkdir build
+    - for d in build logs repo tmp unsigned $home_vagrant/.android; do
+          test -d $d || mkdir $d;
+          chown -R vagrant $d;
+      done
 
-    - export GRADLE_USER_HOME=$CI_PROJECT_DIR/.gradle
-    # try a user build first
-    - fdroid build --verbose --latest org.fdroid.fdroid.privileged
+    - export GRADLE_USER_HOME=$home_vagrant/.gradle
+    - export fdroid="sudo --preserve-env --user vagrant
+          env PATH=$fdroidserver:$PATH
+          env PYTHONPATH=$fdroidserver:$fdroidserver/examples
+          env PYTHONUNBUFFERED=true
+          env TERM=$TERM
+          env HOME=$home_vagrant
+          fdroid"
+
+    - chown -R vagrant $home_vagrant
+
+    # try user build
+    - $fdroid build --verbose --latest org.fdroid.fdroid.privileged
+
+    # try on-server build
+    - $fdroid build --verbose --on-server --no-tarball --latest org.fdroid.fdroid
+
     # each `fdroid build --on-server` run expects sudo, then uninstalls it
-    - apt-get install sudo
-    - currentVersionCode=`python3 -c "import yaml; print(yaml.load(open('metadata/org.fdroid.fdroid.yml'))['CurrentVersionCode'])"`
-    - fdroid build --verbose --on-server --no-tarball org.fdroid.fdroid:$currentVersionCode
+    - if dpkg --list sudo; then echo "sudo should not be still there"; exit 1; fi
+    - 'if [ ! -f repo/status/running.json ]; then echo "ERROR: running.json does not exist!"; exit 1; fi'
+    - 'if [ ! -f repo/status/build.json ]; then echo "ERROR: build.json does not exist!"; exit 1; fi'
 
 
 # test the plugin API and specifically the fetchsrclibs plugin, which
@@ -381,7 +414,7 @@ fdroid build:
 # fdroiddata because that one is known to work, and this is a CI job,
 # so it should be isolated from the normal churn of fdroiddata.
 plugin_fetchsrclibs:
-  image: debian:buster
+  image: debian:bullseye
   <<: *apt-template
   only:
     changes:
@@ -393,18 +426,19 @@ plugin_fetchsrclibs:
         curl
         git
         python3-cffi
-        python3-cryptography
         python3-matplotlib
         python3-nacl
-        python3-pip
+        python3-paramiko
         python3-pil
+        python3-pip
         python3-pycparser
         python3-venv
     - python3 -m venv --system-site-packages env
     - . env/bin/activate
     - export PATH="$CI_PROJECT_DIR:$PATH"
     - export PYTHONPATH="$CI_PROJECT_DIR/examples"
-    - $pip install wheel  # to make this go away: "error: invalid command 'bdist_wheel'"
+    # workaround https://bugs.debian.org/cgi-bin/bugreport.cgi?bug=1003252
+    - export SETUPTOOLS_USE_DISTUTILS=stdlib
     - $pip install -e .
     - fdroid | grep fetchsrclibs
 
@@ -424,7 +458,7 @@ plugin_fetchsrclibs:
 
 # test a full update and deploy cycle to gitlab.com
 servergitmirrors:
-  image: debian:buster
+  image: debian:bullseye-backports
   <<: *apt-template
   only:
     - master@fdroid/fdroidserver
@@ -441,12 +475,15 @@ servergitmirrors:
         python3-pil
         python3-pip
         python3-pycparser
+        python3-setuptools
         python3-venv
         rsync
         wget
+    - apt-get install -t bullseye-backports apksigner
     - python3 -m venv --system-site-packages env
     - . env/bin/activate
     - export PYTHONPATH=`pwd`
+    - export SETUPTOOLS_USE_DISTUTILS=stdlib # https://github.com/pypa/setuptools/issues/2956
     - $pip install -e .
     - mkdir /root/.ssh/
     - ./tests/key-tricks.py
@@ -505,7 +542,7 @@ Windows:
     # these are the tests that must pass
     - python tests\checkupdates.TestCase
     - python tests\exception.TestCase
-    - python tests\import.TestCase
+    - python tests\import_subcommand.TestCase
     - python tests\init.TestCase
     - python tests\lint.TestCase
     - python tests\main.TestCase
@@ -535,6 +572,10 @@ pages:
     - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'  # only publish pages on default (master) branch
 
 
+# This job pushes the official CI docker image based on the master
+# branch, so in fdroid/fdroidserver, it should only run on the master
+# branch.  Otherwise, tags or other branches will overwrite the docker
+# image which is supposed to be what is in master.
 docker:
   dependencies:
     - fdroid build
@@ -543,6 +584,8 @@ docker:
       - .gitlab-ci.yml
       - makebuildserver
       - buildserver/*
+    variables:
+      - $CI_COMMIT_BRANCH == "master" || $CI_PROJECT_NAMESPACE != "fdroid"
   image: docker:git
   services:
     - docker:dind
@@ -553,5 +596,14 @@ docker:
     - cd buildserver
     - docker build -t $TEST_IMAGE --build-arg GIT_REV_PARSE_HEAD=$(git rev-parse HEAD) .
     - docker tag $TEST_IMAGE $RELEASE_IMAGE
+    - docker tag $TEST_IMAGE ${RELEASE_IMAGE}-bullseye
     - echo $CI_BUILD_TOKEN | docker login -u gitlab-ci-token --password-stdin registry.gitlab.com
+    # This avoids filling up gitlab.com free tier accounts with unused docker images.
+    - if test -z "$FDROID_PUSH_DOCKER_IMAGE"; then
+          echo "Skipping docker push to save quota on your gitlab namespace.";
+          echo "If you want to enable the push, set FDROID_PUSH_DOCKER_IMAGE in";
+          echo "https://gitlab.com/$CI_PROJECT_NAMESPACE/fdroidserver/-/settings/ci_cd#js-cicd-variables-settings";
+          exit 0;
+      fi
     - docker push $RELEASE_IMAGE
+    - docker push $RELEASE_IMAGE-bullseye

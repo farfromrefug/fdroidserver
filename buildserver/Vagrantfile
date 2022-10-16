@@ -1,9 +1,14 @@
-
 require 'yaml'
 require 'pathname'
 
 srvpath = Pathname.new(File.dirname(__FILE__)).realpath
-configfile = YAML.load_file(File.join(srvpath, "/Vagrantfile.yaml"))
+configpath = File.join(srvpath, "/Vagrantfile.yaml")
+if File.exists? configpath
+  configfile = YAML.load_file(configpath)
+else
+  puts "#{configpath} does not exist, run ./makebuildserver?"
+  configfile = Hash.new
+end
 
 Vagrant.configure("2") do |config|
 
@@ -78,14 +83,17 @@ Vagrant.configure("2") do |config|
       owner: 'root', group: 'root', create: true
   end
 
+  config.vm.provision "shell", name: "vagrant-insecure-private-key",
+    path: "provision-vagrant-insecure-private-key"
   config.vm.provision "shell", name: "setup-env-vars", path: "setup-env-vars",
     args: ["/opt/android-sdk"]
   config.vm.provision "shell", name: "apt-get-install", path: "provision-apt-get-install",
     args: [configfile['debian_mirror']]
   config.vm.provision "shell", name: "android-sdk", path: "provision-android-sdk"
   config.vm.provision "shell", name: "android-ndk", path: "provision-android-ndk",
-    args: ["/opt/android-sdk/ndk", "r21e", "r23b"]
+    args: ["/opt/android-sdk/ndk", "r23c"]
   config.vm.provision "shell", name: "gradle", path: "provision-gradle"
+  config.vm.provision "shell", name: "disable-analytics", path: "provision-disable-analytics"
   config.vm.provision "shell", name: "buildserverid", path: "provision-buildserverid",
     args: [`git rev-parse HEAD`]
 

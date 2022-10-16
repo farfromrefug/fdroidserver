@@ -18,16 +18,19 @@
 
 import os
 import requests
+import urllib
 
 HEADERS = {'User-Agent': 'F-Droid'}
 
 
 def download_file(url, local_filename=None, dldir='tmp'):
-    filename = url.split('/')[-1]
+    filename = urllib.parse.urlparse(url).path.split('/')[-1]
     if local_filename is None:
         local_filename = os.path.join(dldir, filename)
     # the stream=True parameter keeps memory usage low
-    r = requests.get(url, stream=True, allow_redirects=True, headers=HEADERS)
+    r = requests.get(
+        url, stream=True, allow_redirects=True, headers=HEADERS, timeout=300
+    )
     r.raise_for_status()
     with open(local_filename, 'wb') as f:
         for chunk in r.iter_content(chunk_size=1024):
