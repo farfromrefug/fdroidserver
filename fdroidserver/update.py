@@ -2294,7 +2294,8 @@ def main():
             mismatch_errors += (_('{appid} has both APKs and files: {files}')
                                 .format(appid=appid, files=appid_files)) + '\n'
     if mismatch_errors:
-        raise FDroidException(mismatch_errors)
+        logging.error(mismatch_errors)
+        # raise FDroidException(mismatch_errors)
 
     # Scan the archive repo for apks as well
     if len(repodirs) > 1:
