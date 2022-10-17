@@ -956,6 +956,7 @@ def insert_localized_app_metadata(apps):
         for root, dirs, files in os.walk(srcd):
             segments = root.split('/')
             packageName = segments[1]
+            logging.debug(_("insert_localized_app_metadata from {root} for app {packageName} at current VersionCode {versionCode}").format(root=root,packageName=packageName, versionCode=str(apps[packageName]['CurrentVersionCode'])))
             if packageName not in apps:
                 logging.debug(packageName + ' does not have app metadata, skipping l18n scan.')
                 continue
@@ -976,6 +977,7 @@ def insert_localized_app_metadata(apps):
                 continue
 
             for f in files:
+                logging.debug(_("insert_localized_app_metadata handling file {file}").format(file=f))
                 if f in ('description.txt', 'full_description.txt'):
                     _set_localized_text_entry(apps[packageName], locale, 'description',
                                               os.path.join(root, f))
@@ -993,6 +995,7 @@ def insert_localized_app_metadata(apps):
                                               os.path.join(root, f))
                     continue
                 elif f == str(apps[packageName]['CurrentVersionCode']) + '.txt':
+                    logging.debug("handling changelog for {packageName}".format(packageName=packageName))
                     locale = segments[-2]
                     _set_localized_text_entry(apps[packageName], locale, 'whatsNew',
                                               os.path.join(root, f))
