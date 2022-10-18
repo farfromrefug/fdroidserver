@@ -2313,8 +2313,9 @@ def main():
 
     if len(repodirs) > 1:
         archive_old_apks(apps, apks, archapks, repodirs[0], repodirs[1], config['archive_older'])
-        archived_apps = prepare_apps(apps, archapks, repodirs[1])
-        index.make(archived_apps, archapks, repodirs[1], True)
+        if config.get('index_archives', True):
+            archived_apps = prepare_apps(apps, archapks, repodirs[1])
+            index.make(archived_apps, archapks, repodirs[1], True)
 
     repoapps = prepare_apps(apps, apks, repodirs[0])
 
