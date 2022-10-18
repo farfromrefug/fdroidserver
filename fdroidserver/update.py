@@ -977,7 +977,6 @@ def insert_localized_app_metadata(apps):
                 continue
 
             for f in files:
-                logging.debug(_("insert_localized_app_metadata handling file {file}").format(file=f))
                 if f in ('description.txt', 'full_description.txt'):
                     _set_localized_text_entry(apps[packageName], locale, 'description',
                                               os.path.join(root, f))
@@ -995,7 +994,6 @@ def insert_localized_app_metadata(apps):
                                               os.path.join(root, f))
                     continue
                 elif f == str(apps[packageName]['CurrentVersionCode']) + '.txt':
-                    logging.debug("handling changelog for {packageName}".format(packageName=packageName))
                     locale = segments[-2]
                     _set_localized_text_entry(apps[packageName], locale, 'whatsNew',
                                               os.path.join(root, f))
